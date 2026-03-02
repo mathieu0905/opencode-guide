@@ -1,0 +1,480 @@
+<!DOCTYPE html><!--bye4CeShaPMDcn_ypi8Us--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-103dca6b3bf7cb84.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Event 事件总线</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/bus/index.ts</code> (106 行)<br/>事件定义：<code>packages/opencode/src/bus/bus-event.ts</code><br/>SSE 路由：<code>packages/opencode/src/server/routes/</code> (global/event 端点)</p><h2>概述</h2><p>Event Bus 是 OpenCode 的<strong>神经系统</strong>。所有内部状态变更——Session 创建、 消息更新、工具执行、权限请求——都通过 Bus 广播。前端通过 SSE 实时接收这些事件， 实现零轮询的实时 UI。理解事件系统，就理解了前后端是如何保持同步的。</p><h2>事件总线全景图</h2><pre><code>
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    OpenCode 后端进程                              │
+  │                                                                 │
+  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+  │  │ Session  │  │ Message  │  │   Tool   │  │Permission│       │
+  │  │  模块    │  │   模块   │  │   模块   │  │   模块   │       │
+  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
+  │       │             │             │             │               │
+  │       │  publish()  │  publish()  │  publish()  │  publish()   │
+  │       ▼             ▼             ▼             ▼               │
+  │  ┌─────────────────────────────────────────────────────────┐   │
+  │  │                    Event Bus (内存)                       │   │
+  │  │                                                         │   │
+  │  │  EventEmitter:                                          │   │
+  │  │    .on(&quot;session.created&quot;, handler)                       │   │
+  │  │    .on(&quot;message.part.delta&quot;, handler)                    │   │
+  │  │    .on(&quot;*&quot;, handler)  ← subscribeAll                    │   │
+  │  │                                                         │   │
+  │  │  ┌─────────────────────────────────────────────────┐    │   │
+  │  │  │  Database.effect() 队列                          │    │   │
+  │  │  │  事务提交前: 缓存事件                             │    │   │
+  │  │  │  事务提交后: 批量 emit                            │    │   │
+  │  │  └─────────────────────────────────────────────────┘    │   │
+  │  └───────────┬──────────┬──────────┬──────────┬────────────┘   │
+  │              │          │          │          │                 │
+  │              ▼          ▼          ▼          ▼                 │
+  │         SSE 推送    TUI 更新   Desktop    Plugin.event()       │
+  │                                                                 │
+  └──────────────┬──────────────────────────────────────────────────┘
+                 │
+                 │  HTTP SSE Stream
+                 │  data: { &quot;directory&quot;: &quot;...&quot;, &quot;payload&quot;: { type, properties } }
+                 │
+    ┌────────────▼────────────┐
+    │     前端客户端            │
+    │                         │
+    │  EventSource            │
+    │    ├── session-store    │
+    │    ├── message-store    │
+    │    └── permission-ui    │
+    └─────────────────────────┘
+</code></pre><h2>Bus 实现 — 基于 EventEmitter</h2><pre><code>// bus/index.ts — 核心实现 (只有 106 行!)
+
+// ★ 底层是 Node.js EventEmitter
+const emitter = new EventEmitter()
+emitter.setMaxListeners(0)  // 不限制监听器数量
+
+// ═══════ 发布事件 ═══════
+function publish&lt;T&gt;(definition: EventDefinition&lt;T&gt;, properties: T) {
+  const event = {
+    type: definition.type,    // e.g. &quot;message.part.delta&quot;
+    properties,               // e.g. { sessionID, messageID, partID, field, delta }
+  }
+
+  // ★ 如果在事务中 → 延迟发布 (Database.effect)
+  // ★ 如果不在事务中 → 立即发布
+  emitter.emit(definition.type, event)
+  emitter.emit(&quot;*&quot;, event)  // 通配符监听器
+}
+
+// ═══════ 订阅单个事件 ═══════
+function subscribe&lt;T&gt;(
+  definition: EventDefinition&lt;T&gt;,
+  handler: (event: { type: string, properties: T }) =&gt; void
+) {
+  emitter.on(definition.type, handler)
+  return () =&gt; emitter.off(definition.type, handler)  // 返回取消函数
+}
+
+// ═══════ 订阅所有事件 ═══════
+function subscribeAll(handler: (event: AnyEvent) =&gt; void) {
+  emitter.on(&quot;*&quot;, handler)
+  return () =&gt; emitter.off(&quot;*&quot;, handler)
+}</code></pre><h2>Database.effect() — 事件一致性的关键</h2><p>这是整个事件系统最精妙的设计。问题场景：</p><pre><code>
+  ❌ 没有 Database.effect() 时的竞态问题:
+
+  时间线 ──────────────────────────────────────────────►
+
+  后端:    [BEGIN TX]  [INSERT session]  [Bus.publish]  [COMMIT TX]
+                                              │
+                                              ▼
+  前端:                                  收到事件! ──► GET /session/{id}
+                                                              │
+                                                              ▼
+                                                        404! 数据还没提交!
+
+  ─────────────────────────────────────────────────────────────
+
+  ✅ 有 Database.effect() 时:
+
+  时间线 ──────────────────────────────────────────────►
+
+  后端:    [BEGIN TX]  [INSERT session]  [effect队列]  [COMMIT TX]  [flush效果]
+                                                                        │
+                                                                   Bus.publish
+                                                                        │
+                                                                        ▼
+  前端:                                                            收到事件!
+                                                                        │
+                                                                        ▼
+                                                                  GET /session/{id}
+                                                                        │
+                                                                        ▼
+                                                                   200 OK! ✓
+</code></pre><pre><code>// 实现原理:
+
+// Database.effect() 使用 AsyncLocalStorage 追踪当前事务上下文
+
+const effectQueue = new AsyncLocalStorage&lt;Array&lt;() =&gt; void&gt;&gt;()
+
+function effect(fn: () =&gt; void) {
+  const queue = effectQueue.getStore()
+  if (queue) {
+    queue.push(fn)  // 在事务中 → 加入队列
+  } else {
+    fn()            // 不在事务中 → 立即执行
+  }
+}
+
+function transaction(fn) {
+  const queue: Array&lt;() =&gt; void&gt; = []
+
+  effectQueue.run(queue, () =&gt; {
+    db.transaction(() =&gt; {
+      fn(db)  // 执行事务体 (内部的 effect 会加入 queue)
+    })
+    // ★ 事务已提交 → 安全地 flush 所有副作用
+    for (const effect of queue) {
+      effect()
+    }
+  })
+}
+
+// ═══════ 使用示例 ═══════
+Database.transaction((tx) =&gt; {
+  // 1. 写入数据
+  tx.insert(SessionTable).values({ id: &quot;ses_001&quot;, ... })
+
+  // 2. 注册副作用 (此时不会执行)
+  Database.effect(() =&gt; {
+    Bus.publish(Session.Event.Created, { info: session })
+  })
+
+  // 3. 写入更多数据
+  tx.insert(MessageTable).values({ ... })
+})
+// 4. 事务提交成功 → effect 中的 Bus.publish 才执行
+// 5. 如果事务回滚 → effect 永远不会执行 → 不会发送虚假事件</code></pre><h2>完整事件类型列表 (44 种)</h2><h3>Session 事件 (8 种)</h3><pre><code>
+┌───────────────────────────────────────────────────────────────────┐
+│                        Session 生命周期事件                        │
+│                                                                   │
+│  create() ──► session.created { info: Session }                  │
+│                     │                                             │
+│  ┌─────────────────▼──────────────────────────────────┐          │
+│  │              session (活跃)                          │          │
+│  │                                                     │          │
+│  │  prompt()  ──► session.status { status: &quot;busy&quot; }    │          │
+│  │                     │                               │          │
+│  │               Agent 执行中...                        │          │
+│  │                     │                               │          │
+│  │              ──► session.diff { diffs: FileDiff[] }  │          │
+│  │                     │                               │          │
+│  │  完成        ──► session.idle { sessionID }          │          │
+│  │              ──► session.status { status: &quot;idle&quot; }   │          │
+│  │                                                     │          │
+│  │  compact()  ──► session.compacted { sessionID }     │          │
+│  │  update()   ──► session.updated { info: Session }   │          │
+│  │  error      ──► session.error { error }             │          │
+│  └─────────────────────────────────────────────────────┘          │
+│                     │                                             │
+│  delete()    ──► session.deleted { info: Session }                │
+└───────────────────────────────────────────────────────────────────┘
+</code></pre><h3>Message 事件 (5 种) — 最高频</h3><pre><code>
+  LLM 流式输出一段文本 + 调用一个工具的完整事件序列:
+
+  时间 ─────────────────────────────────────────────────────────────►
+
+  ① message.updated          创建 AssistantMessage
+     { info: { id: &quot;msg_002&quot;, role: &quot;assistant&quot;, time: { created: ... } } }
+     │
+  ② message.part.updated     创建空 TextPart
+     { part: { id: &quot;p_001&quot;, type: &quot;text&quot;, text: &quot;&quot; } }
+     │
+  ③ message.part.delta       流式文本 (每个 token 一次)
+     { messageID: &quot;msg_002&quot;, partID: &quot;p_001&quot;, field: &quot;text&quot;, delta: &quot;让我&quot; }
+     │
+  ④ message.part.delta
+     { ..., delta: &quot;看看这个&quot; }
+     │
+  ⑤ message.part.delta
+     { ..., delta: &quot;文件...&quot; }
+     │
+  ⑥ message.part.updated     TextPart 完成
+     { part: { id: &quot;p_001&quot;, type: &quot;text&quot;, text: &quot;让我看看这个文件...&quot; } }
+     │
+  ⑦ message.part.updated     创建 ToolPart (pending)
+     { part: { id: &quot;p_002&quot;, type: &quot;tool&quot;, tool: &quot;read&quot;,
+               state: { status: &quot;pending&quot;, input: { file_path: &quot;...&quot; } } } }
+     │
+  ⑧ message.part.updated     ToolPart → running
+     { part: { ..., state: { status: &quot;running&quot;, ... } } }
+     │
+  ⑨ message.part.updated     ToolPart → completed
+     { part: { ..., state: { status: &quot;completed&quot;, output: &quot;...&quot;, title: &quot;...&quot; } } }
+     │
+  ⑩ message.updated          AssistantMessage 完成
+     { info: { id: &quot;msg_002&quot;, time: { completed: ... }, cost: 0.02, tokens: {...} } }
+
+  ─────────────────────────────────────────────────────────────────
+  message.removed  ← 删除消息时 (少见)
+  { sessionID: &quot;ses_001&quot;, messageID: &quot;msg_002&quot; }
+
+  message.part.removed  ← 删除 Part 时 (少见)
+  { sessionID: &quot;ses_001&quot;, messageID: &quot;msg_002&quot;, partID: &quot;p_001&quot; }
+</code></pre><h3>Permission 事件 (4 种)</h3><pre><code>
+  工具请求权限的完整交互:
+
+  Agent Loop                    Bus                        前端 UI
+      │                          │                           │
+      │  tool.execute()          │                           │
+      │  → ctx.ask()             │                           │
+      │                          │                           │
+      │  ┌────────────────┐      │                           │
+      │  │ 评估规则:       │      │                           │
+      │  │ action = &quot;ask&quot; │      │                           │
+      │  └───────┬────────┘      │                           │
+      │          │               │                           │
+      │          │ permission.asked                          │
+      │          │──────────────►│──────────────────────────►│
+      │          │               │                           │
+      │    (暂停等待...)          │          ┌──────────────┐ │
+      │          │               │          │ Allow edit   │ │
+      │          │               │          │ src/app.ts?  │ │
+      │          │               │          │              │ │
+      │          │               │          │ [Once] [Always] [No]
+      │          │               │          └──────┬───────┘ │
+      │          │               │                 │         │
+      │          │               │  permission.replied       │
+      │          │◄──────────────│◄─────────────────────────│
+      │          │               │  { action: &quot;always&quot; }     │
+      │          │               │                           │
+      │  继续执行工具             │                           │
+      │                          │                           │
+
+  ─────────────────────────────────────────────────────────────
+
+  question.asked / question.replied — 同样的模式:
+  工具向用户提问 (如 AskUserQuestion 工具)
+  前端显示选项卡 → 用户选择 → 回复
+</code></pre><h3>系统事件 (7+ 种)</h3><table><thead><tr><th>事件</th><th>触发时机</th><th>Properties</th></tr></thead><tbody><tr><td><code>server.connected</code></td><td>客户端 SSE 连接建立</td><td>{ client }</td></tr><tr><td><code>server.instance.disposed</code></td><td>项目实例销毁</td><td>{}</td></tr><tr><td><code>installation.updated</code></td><td>OpenCode 版本更新</td><td>{ version }</td></tr><tr><td><code>file.edited</code></td><td>文件被工具编辑</td><td>{ path }</td></tr><tr><td><code>lsp.diagnostics</code></td><td>LSP 诊断结果更新</td><td>{ diagnostics }</td></tr><tr><td><code>vcs.branch.updated</code></td><td>Git 分支切换检测</td><td>{ branch }</td></tr><tr><td><code>mcp.tools.changed</code></td><td>MCP 工具列表变更</td><td>{ tools }</td></tr></tbody></table><h2>SSE 传输层</h2><pre><code>
+  ┌──────────────────────────────────────────────────────────┐
+  │  GET /global/event                                        │
+  │                                                          │
+  │  HTTP Response:                                          │
+  │    Status: 200 OK                                        │
+  │    Content-Type: text/event-stream                       │
+  │    Cache-Control: no-cache                               │
+  │    Connection: keep-alive                                │
+  │                                                          │
+  │  Body (无限流):                                           │
+  │    :heartbeat ──────────────────── 每 10 秒              │
+  │                                                          │
+  │    data: {&quot;directory&quot;:&quot;/proj&quot;,&quot;payload&quot;:               │
+  │           {&quot;type&quot;:&quot;session.created&quot;,                    │
+  │            &quot;properties&quot;:{&quot;info&quot;:{...}}}}               │
+  │                                                          │
+  │    data: {&quot;directory&quot;:&quot;/proj&quot;,&quot;payload&quot;:               │
+  │           {&quot;type&quot;:&quot;message.part.delta&quot;,                │
+  │            &quot;properties&quot;:{&quot;delta&quot;:&quot;Hello&quot;}}}            │
+  │                                                          │
+  │    :heartbeat ──────────────────── 每 10 秒              │
+  │    ...                                                   │
+  └──────────────────────────────────────────────────────────┘
+
+  ═══════ GlobalEvent 包装结构 ═══════
+
+  type GlobalEvent = {
+    directory: string    // 事件来源的项目目录
+                         // 多项目场景: 前端按 directory 过滤
+    payload: {
+      type: string       // 44 种事件类型之一
+      properties: any    // 事件数据
+    }
+  }
+</code></pre><h2>前端消费模式</h2><pre><code>
+  ┌─────────────────────────────────────────────────────────────┐
+  │  前端事件处理流水线                                           │
+  │                                                             │
+  │  EventSource(&quot;/api/global/event&quot;)                           │
+  │       │                                                     │
+  │       │  onmessage(event)                                   │
+  │       ▼                                                     │
+  │  ┌─────────────┐                                            │
+  │  │ JSON.parse() │ → GlobalEvent { directory, payload }      │
+  │  └──────┬──────┘                                            │
+  │         │                                                   │
+  │         ▼                                                   │
+  │  ┌─────────────────────────────────────────────────┐        │
+  │  │  switch (payload.type)                           │        │
+  │  │                                                  │        │
+  │  │  &quot;session.*&quot;          → sessionStore 方法        │        │
+  │  │    .created           →   addSession()          │        │
+  │  │    .updated           →   updateSession()       │        │
+  │  │    .deleted           →   removeSession()       │        │
+  │  │                                                  │        │
+  │  │  &quot;message.*&quot;          → messageStore 方法        │        │
+  │  │    .updated           →   upsertMessage()       │        │
+  │  │    .removed           →   removeMessage()       │        │
+  │  │    .part.updated      →   upsertPart()          │        │
+  │  │    .part.delta        →   applyDelta()  ★核心   │        │
+  │  │    .part.removed      →   removePart()          │        │
+  │  │                                                  │        │
+  │  │  &quot;permission.*&quot;       → permissionUI            │        │
+  │  │    .asked             →   showDialog()          │        │
+  │  │    .replied           →   hideDialog()          │        │
+  │  └─────────────────────┬───────────────────────────┘        │
+  │                        │                                    │
+  │                        ▼                                    │
+  │  ┌─────────────────────────────────────────────────┐        │
+  │  │  Zustand Store 状态更新                           │        │
+  │  │    → React 自动重渲染                             │        │
+  │  │    → 用户看到实时更新的 UI                         │        │
+  │  └─────────────────────────────────────────────────┘        │
+  └─────────────────────────────────────────────────────────────┘
+</code></pre><h3>applyDelta — 流式文本核心</h3><pre><code>
+  流式文本的前端累积过程:
+
+  时间    Delta 事件              Store 中的 text        UI 显示
+  ────────────────────────────────────────────────────────────
+  T1     delta: &quot;让&quot;              &quot;让&quot;                   让▌
+  T2     delta: &quot;我看&quot;            &quot;让我看&quot;               让我看▌
+  T3     delta: &quot;看代码&quot;          &quot;让我看看代码&quot;          让我看看代码▌
+  T4     delta: &quot;...&quot;             &quot;让我看看代码...&quot;       让我看看代码...▌
+  T5     (part.updated)           &quot;让我看看代码...&quot;       让我看看代码...
+
+  ─────────────────────────────────────────────────────────────
+
+  // applyDelta 实现:
+  function applyDelta(messageID, partID, field, delta) {
+    const parts = this.parts[messageID]
+    const idx = binarySearch(parts, partID)      // 二分查找
+    const part = parts[idx]
+    const current = part[field] ?? &quot;&quot;             // &quot;让我看&quot;
+    const next = current + delta                  // &quot;让我看&quot; + &quot;看代码&quot; = &quot;让我看看代码&quot;
+    parts[idx] = { ...part, [field]: next }       // 不可变更新
+    // → Zustand 触发 React 重渲染
+  }
+</code></pre><h2>SSE 连接生命周期</h2><pre><code>
+  客户端                              服务端
+    │                                   │
+    │  new EventSource(&quot;/global/event&quot;) │
+    │──────────────────────────────────►│
+    │                                   │  Bus.subscribeAll(handler)
+    │           200 OK + SSE headers    │
+    │◄──────────────────────────────────│
+    │                                   │
+    │    :heartbeat                     │  每 10 秒
+    │◄──────────────────────────────────│
+    │                                   │
+    │    data: { event... }             │  有事件时推送
+    │◄──────────────────────────────────│
+    │                                   │
+    │    :heartbeat                     │
+    │◄──────────────────────────────────│
+    │                                   │
+    │         (网络断开)                 │
+    │           ✕                       │  检测到连接关闭
+    │                                   │  Bus.unsubscribe(handler)
+    │                                   │
+    │  自动重连 (1s 后)                  │
+    │──────────────────────────────────►│
+    │                                   │  新的 Bus.subscribeAll
+    │           200 OK                  │
+    │◄──────────────────────────────────│
+    │                                   │
+    │  ★ 重连后需要重新拉取数据:         │
+    │    fetchSessions()                │
+    │    fetchMessages(currentSession)  │
+    │                                   │
+
+  ═══════ 断线重连策略 (指数退避) ═══════
+
+  第 1 次断线 → 1 秒后重连
+  第 2 次断线 → 2 秒后重连
+  第 3 次断线 → 4 秒后重连
+  第 4+ 次断线 → 5 秒后重连 (上限)
+  连接成功后 → 重置计数器
+
+  ═══════ 心跳超时检测 ═══════
+  如果 15 秒没收到任何数据 (包括 heartbeat):
+    → 认为连接已断开
+    → 主动关闭 EventSource
+    → 触发重连流程
+</code></pre><h2>GlobalBus — 跨实例广播</h2><pre><code>
+  ┌───────────────────────────────────────────────────────┐
+  │  OpenCode 服务器进程                                    │
+  │                                                       │
+  │  Instance A (/proj-a)     Instance B (/proj-b)        │
+  │  ┌─────────────────┐     ┌─────────────────┐         │
+  │  │  Bus (本地)       │     │  Bus (本地)       │         │
+  │  │  session.created │     │  file.edited    │         │
+  │  └────────┬────────┘     └────────┬────────┘         │
+  │           │                       │                   │
+  │           ▼                       ▼                   │
+  │  ┌─────────────────────────────────────────────┐     │
+  │  │              GlobalBus                       │     │
+  │  │  EventEmitter (进程级单例)                    │     │
+  │  │                                             │     │
+  │  │  emit({ directory: &quot;/proj-a&quot;, payload })    │     │
+  │  │  emit({ directory: &quot;/proj-b&quot;, payload })    │     │
+  │  └──────┬──────────────────────┬───────────────┘     │
+  │         │                      │                     │
+  │         ▼                      ▼                     │
+  │    SSE Client 1           SSE Client 2               │
+  │    (打开 /proj-a)         (打开 /proj-b)              │
+  │    收到所有事件             收到所有事件                │
+  │    按 directory 过滤       按 directory 过滤           │
+  └───────────────────────────────────────────────────────┘
+
+  // 前端过滤:
+  eventSource.onmessage = (event) =&gt; {
+    const { directory, payload } = JSON.parse(event.data)
+    if (directory !== currentProject.directory) return  // 忽略其他项目
+    handleEvent(payload)
+  }
+</code></pre><h2>事件在整个系统中的位置</h2><pre><code>
+  用户点击 &quot;Send&quot;
+       │
+       ▼
+  POST /session/{id}/prompt_async
+       │
+       ▼
+  ┌────────────────────────────────────────────────────────────┐
+  │  prompt.ts: 创建 UserMessage                                │
+  │                                                            │
+  │  Database.transaction() {                                  │
+  │    INSERT INTO message ...                                 │
+  │    INSERT INTO part ...                                    │
+  │                                                            │
+  │    Database.effect(() =&gt; {                                 │
+  │      Bus.publish(&quot;message.updated&quot;, { info: userMsg })     │  ──► SSE ──► 前端显示用户消息
+  │      Bus.publish(&quot;message.part.updated&quot;, { part: text })   │  ──► SSE ──► 前端显示文字
+  │    })                                                      │
+  │  }                                                         │
+  │  // ★ 事务提交 → effect 执行 → 事件发布                      │
+  └────────────────────────────────────────────────────────────┘
+       │
+       ▼
+  ┌────────────────────────────────────────────────────────────┐
+  │  processor.ts: Agent 循环                                   │
+  │                                                            │
+  │  for await (event of llm.stream) {                         │
+  │                                                            │
+  │    text-delta:                                             │
+  │      Bus.publish(&quot;message.part.delta&quot;, { delta: &quot;Hi&quot; })    │  ──► SSE ──► 前端追加文字
+  │                                                            │
+  │    tool-call:                                              │
+  │      Bus.publish(&quot;part.updated&quot;, { status: &quot;running&quot; })    │  ──► SSE ──► 前端黄色卡片
+  │                                                            │
+  │      ctx.ask() → 需要权限:                                  │
+  │      Bus.publish(&quot;permission.asked&quot;, { request })          │  ──► SSE ──► 前端弹出确认框
+  │      ... 等待 ...                                          │
+  │      Bus.subscribe(&quot;permission.replied&quot;, handler)          │  ◄── SSE ◄── 用户点击 Allow
+  │                                                            │
+  │    tool-result:                                            │
+  │      Bus.publish(&quot;part.updated&quot;, { status: &quot;completed&quot; })  │  ──► SSE ──► 前端绿色卡片
+  │                                                            │
+  │    finish-step:                                            │
+  │      Bus.publish(&quot;session.diff&quot;, { diffs })                │  ──► SSE ──► 前端更新 diff
+  │  }                                                         │
+  │                                                            │
+  │  Bus.publish(&quot;message.updated&quot;, { info: { completed } })   │  ──► SSE ──► 前端停止 loading
+  │  Bus.publish(&quot;session.idle&quot;, { sessionID })                │  ──► SSE ──► 前端状态恢复
+  └────────────────────────────────────────────────────────────┘
+</code></pre><h2>设计要点</h2><ul><li><strong>EventEmitter 足够了</strong> — 不需要 Redis Pub/Sub 或 Kafka。 OpenCode 是单进程嵌入式应用，内存级 EventEmitter 延迟最低、最简单。</li><li><strong>Database.effect() 是一致性保障</strong> — 事件一定在数据写入成功后才发布。 事务回滚时副作用不会执行，前端永远不会收到&quot;数据还不存在&quot;的虚假事件。</li><li><strong>44 种事件覆盖所有状态变更</strong> — 从 Session 创建到 Git 分支切换， 所有内部状态变化都有对应事件。前端可以构建完全响应式的 UI。</li><li><strong>SSE 而非 WebSocket</strong> — SSE 是单向推送（服务端→客户端）， 恰好满足需求。比 WebSocket 更简单（浏览器原生支持、自动重连、无需握手协议）。 前端的操作（发消息、回复权限）走普通 HTTP POST。</li><li><strong>GlobalEvent 的 directory 字段实现多项目隔离</strong> — 一个 SSE 连接 接收所有项目的事件，前端按 directory 过滤。简单且无需为每个项目维护独立连接。</li></ul></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"210\",\"static/chunks/app/guide/layout-103dca6b3bf7cb84.js\"],\"default\"]\n28:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n8:Tebd,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────────┐\n  │                    OpenCode 后端进程                              │\n  │                                                                 │\n  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │\n  │  │ Session  │  │ Message  │  │   Tool   │  │Permission│       │\n  │  │  模块    │  │   模块   │  │   模块   │  │   模块   │       │\n  │  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │\n  │       │             │             │             │               │\n  │       │  publish()  │  publish()  │  publish()  │  publish()   │\n  │       ▼             ▼             ▼             ▼               │\n  │  ┌─────────────────────────────────────────────────────────┐   │\n  │  │                    Event Bus (内存)                       │   │\n  │  │                                                         │   │\n  │  │  EventEmitter:                                          │   │\n  │  │    .on(\"session.created\", handler)                       │   │\n  │  │    .on(\"message.part.delta\", handler)                    │   │\n  │  │    .on(\"*\", handler)  ← subscribeAll                    │   │\n  │  │                                                         │   │\n  │  │  ┌─────────────────────────────────────────────────┐    │   │\n  │  │  │  Database.effect() 队列                          │    │   │\n  │  │  │  事务提交前: 缓存事件                             │    │   │\n  │  │  │  事务提交后: 批量 emit                            │    │   │\n  │  │  └─────────────────────────────────────────────────┘    │   │\n  │  └───────────┬──────────┬──────────┬──────────┬────────────┘   │\n  │              │          │          │          │                 │\n  │              ▼          ▼          ▼          ▼                 │\n  │         SSE 推送    TUI 更新   Desktop    Plugin.event()       │\n  │                                                                 │\n  └──────────────┬──────────────────────────────────────────────────┘\n                 │\n                 │  HTTP SSE Stream\n                 │  data: { \"directory\": \"...\", \"payload\": { type, properties } }\n                 │\n    ┌────────────▼────────────┐\n    │     前端客户端            │\n    │                         │\n    │  EventSource            │\n    │    ├── session-store    │\n    │    ├── message-store    │\n    │    └── permission-ui    │\n    └─────────────────────────┘\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"bye4CeShaPMDcn-ypi8Us\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"event\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"event\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"event\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Event 事件总线\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/bus/index.ts\"}],\" (106 行)\",[\"$\",\"br\",null,{}],\"事件定义：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/bus/bus-event.ts\"}],[\"$\",\"br\",null,{}],\"SSE 路由：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/server/routes/\"}],\" (global/event 端点)\"]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"Event Bus 是 OpenCode 的\",[\"$\",\"strong\",null,{\"children\":\"神经系统\"}],\"。所有内部状态变更——Session 创建、 消息更新、工具执行、权限请求——都通过 Bus 广播。前端通过 SSE 实时接收这些事件， 实现零轮询的实时 UI。理解事件系统，就理解了前后端是如何保持同步的。\"]}],[\"$\",\"h2\",null,{\"children\":\"事件总线全景图\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$8\"}]}],\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\",\"$L15\",\"$L16\",\"$L17\",\"$L18\",\"$L19\",\"$L1a\",\"$L1b\",\"$L1c\",\"$L1d\",\"$L1e\",\"$L1f\",\"$L20\",\"$L21\",\"$L22\",\"$L23\",\"$L24\",\"$L25\"]}],null,\"$L26\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L27\",false]],\"m\":\"$undefined\",\"G\":[\"$28\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"32:I[1474,[],\"OutletBoundary\"]\n34:I[9783,[],\"AsyncMetadataOutlet\"]\n36:I[1474,[],\"ViewportBoundary\"]\n38:I[1474,[],\"MetadataBoundary\"]\n39:\"$Sreact.suspense\"\n9:[\"$\",\"h2\",null,{\"children\":\"Bus 实现 — 基于 EventEmitter\"}]\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// bus/index.ts — 核心实现 (只有 106 行!)\\n\\n// ★ 底层是 Node.js EventEmitter\\nconst emitter = new EventEmitter()\\nemitter.setMaxListeners(0)  // 不限制监听器数量\\n\\n// ═══════ 发布事件 ═══════\\nfunction publish\u003cT\u003e(definition: EventDefinition\u003cT\u003e, properties: T) {\\n  const event = {\\n    type: definition.type,    // e.g. \\\"message.part.delta\\\"\\n    properties,               // e.g. { sessionID, messageID, partID, field, delta }\\n  }\\n\\n  // ★ 如果在事务中 → 延迟发布 (Database.effect)\\n  // ★ 如果不在事务中 → 立即发布\\n  emitter.emit(definition.type, event)\\n  emitter.emit(\\\"*\\\", event)  // 通配符监听器\\n}\\n\\n// ═══════ 订阅单个事件 ═══════\\nfunction subscribe\u003cT\u003e(\\n  definition: EventDefinition\u003cT\u003e,\\n  handler: (event: { type: string, properties: T }) =\u003e void\\n) {\\n  emitter.on(definition.type, handler)\\n  return () =\u003e emitter.off(definition.type, handler)  // 返回取消函数\\n}\\n\\n// ═══════ 订阅所有事件 ═══════\\nfunction subscribeAll(handler: (event: AnyEvent) =\u003e void) {\\n  emitter.on(\\\"*\\\", handler)\\n  return () =\u003e emitter.off(\\\"*\\\", handler)\\n}\"}]}]\n"])</script><script>self.__next_f.push([1,"b:[\"$\",\"h2\",null,{\"children\":\"Database.effect() — 事件一致性的关键\"}]\nc:[\"$\",\"p\",null,{\"children\":\"这是整个事件系统最精妙的设计。问题场景：\"}]\n29:T7cc,"])</script><script>self.__next_f.push([1,"\n  ❌ 没有 Database.effect() 时的竞态问题:\n\n  时间线 ──────────────────────────────────────────────►\n\n  后端:    [BEGIN TX]  [INSERT session]  [Bus.publish]  [COMMIT TX]\n                                              │\n                                              ▼\n  前端:                                  收到事件! ──► GET /session/{id}\n                                                              │\n                                                              ▼\n                                                        404! 数据还没提交!\n\n  ─────────────────────────────────────────────────────────────\n\n  ✅ 有 Database.effect() 时:\n\n  时间线 ──────────────────────────────────────────────►\n\n  后端:    [BEGIN TX]  [INSERT session]  [effect队列]  [COMMIT TX]  [flush效果]\n                                                                        │\n                                                                   Bus.publish\n                                                                        │\n                                                                        ▼\n  前端:                                                            收到事件!\n                                                                        │\n                                                                        ▼\n                                                                  GET /session/{id}\n                                                                        │\n                                                                        ▼\n                                                                   200 OK! ✓\n"])</script><script>self.__next_f.push([1,"d:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$29\"}]}]\n"])</script><script>self.__next_f.push([1,"e:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// 实现原理:\\n\\n// Database.effect() 使用 AsyncLocalStorage 追踪当前事务上下文\\n\\nconst effectQueue = new AsyncLocalStorage\u003cArray\u003c() =\u003e void\u003e\u003e()\\n\\nfunction effect(fn: () =\u003e void) {\\n  const queue = effectQueue.getStore()\\n  if (queue) {\\n    queue.push(fn)  // 在事务中 → 加入队列\\n  } else {\\n    fn()            // 不在事务中 → 立即执行\\n  }\\n}\\n\\nfunction transaction(fn) {\\n  const queue: Array\u003c() =\u003e void\u003e = []\\n\\n  effectQueue.run(queue, () =\u003e {\\n    db.transaction(() =\u003e {\\n      fn(db)  // 执行事务体 (内部的 effect 会加入 queue)\\n    })\\n    // ★ 事务已提交 → 安全地 flush 所有副作用\\n    for (const effect of queue) {\\n      effect()\\n    }\\n  })\\n}\\n\\n// ═══════ 使用示例 ═══════\\nDatabase.transaction((tx) =\u003e {\\n  // 1. 写入数据\\n  tx.insert(SessionTable).values({ id: \\\"ses_001\\\", ... })\\n\\n  // 2. 注册副作用 (此时不会执行)\\n  Database.effect(() =\u003e {\\n    Bus.publish(Session.Event.Created, { info: session })\\n  })\\n\\n  // 3. 写入更多数据\\n  tx.insert(MessageTable).values({ ... })\\n})\\n// 4. 事务提交成功 → effect 中的 Bus.publish 才执行\\n// 5. 如果事务回滚 → effect 永远不会执行 → 不会发送虚假事件\"}]}]\n"])</script><script>self.__next_f.push([1,"f:[\"$\",\"h2\",null,{\"children\":\"完整事件类型列表 (44 种)\"}]\n10:[\"$\",\"h3\",null,{\"children\":\"Session 事件 (8 种)\"}]\n2a:T960,"])</script><script>self.__next_f.push([1,"\n┌───────────────────────────────────────────────────────────────────┐\n│                        Session 生命周期事件                        │\n│                                                                   │\n│  create() ──► session.created { info: Session }                  │\n│                     │                                             │\n│  ┌─────────────────▼──────────────────────────────────┐          │\n│  │              session (活跃)                          │          │\n│  │                                                     │          │\n│  │  prompt()  ──► session.status { status: \"busy\" }    │          │\n│  │                     │                               │          │\n│  │               Agent 执行中...                        │          │\n│  │                     │                               │          │\n│  │              ──► session.diff { diffs: FileDiff[] }  │          │\n│  │                     │                               │          │\n│  │  完成        ──► session.idle { sessionID }          │          │\n│  │              ──► session.status { status: \"idle\" }   │          │\n│  │                                                     │          │\n│  │  compact()  ──► session.compacted { sessionID }     │          │\n│  │  update()   ──► session.updated { info: Session }   │          │\n│  │  error      ──► session.error { error }             │          │\n│  └─────────────────────────────────────────────────────┘          │\n│                     │                                             │\n│  delete()    ──► session.deleted { info: Session }                │\n└───────────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"11:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2a\"}]}]\n12:[\"$\",\"h3\",null,{\"children\":\"Message 事件 (5 种) — 最高频\"}]\n2b:T7ba,"])</script><script>self.__next_f.push([1,"\n  LLM 流式输出一段文本 + 调用一个工具的完整事件序列:\n\n  时间 ─────────────────────────────────────────────────────────────►\n\n  ① message.updated          创建 AssistantMessage\n     { info: { id: \"msg_002\", role: \"assistant\", time: { created: ... } } }\n     │\n  ② message.part.updated     创建空 TextPart\n     { part: { id: \"p_001\", type: \"text\", text: \"\" } }\n     │\n  ③ message.part.delta       流式文本 (每个 token 一次)\n     { messageID: \"msg_002\", partID: \"p_001\", field: \"text\", delta: \"让我\" }\n     │\n  ④ message.part.delta\n     { ..., delta: \"看看这个\" }\n     │\n  ⑤ message.part.delta\n     { ..., delta: \"文件...\" }\n     │\n  ⑥ message.part.updated     TextPart 完成\n     { part: { id: \"p_001\", type: \"text\", text: \"让我看看这个文件...\" } }\n     │\n  ⑦ message.part.updated     创建 ToolPart (pending)\n     { part: { id: \"p_002\", type: \"tool\", tool: \"read\",\n               state: { status: \"pending\", input: { file_path: \"...\" } } } }\n     │\n  ⑧ message.part.updated     ToolPart → running\n     { part: { ..., state: { status: \"running\", ... } } }\n     │\n  ⑨ message.part.updated     ToolPart → completed\n     { part: { ..., state: { status: \"completed\", output: \"...\", title: \"...\" } } }\n     │\n  ⑩ message.updated          AssistantMessage 完成\n     { info: { id: \"msg_002\", time: { completed: ... }, cost: 0.02, tokens: {...} } }\n\n  ─────────────────────────────────────────────────────────────────\n  message.removed  ← 删除消息时 (少见)\n  { sessionID: \"ses_001\", messageID: \"msg_002\" }\n\n  message.part.removed  ← 删除 Part 时 (少见)\n  { sessionID: \"ses_001\", messageID: \"msg_002\", partID: \"p_001\" }\n"])</script><script>self.__next_f.push([1,"13:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2b\"}]}]\n14:[\"$\",\"h3\",null,{\"children\":\"Permission 事件 (4 种)\"}]\n2c:T9fb,"])</script><script>self.__next_f.push([1,"\n  工具请求权限的完整交互:\n\n  Agent Loop                    Bus                        前端 UI\n      │                          │                           │\n      │  tool.execute()          │                           │\n      │  → ctx.ask()             │                           │\n      │                          │                           │\n      │  ┌────────────────┐      │                           │\n      │  │ 评估规则:       │      │                           │\n      │  │ action = \"ask\" │      │                           │\n      │  └───────┬────────┘      │                           │\n      │          │               │                           │\n      │          │ permission.asked                          │\n      │          │──────────────►│──────────────────────────►│\n      │          │               │                           │\n      │    (暂停等待...)          │          ┌──────────────┐ │\n      │          │               │          │ Allow edit   │ │\n      │          │               │          │ src/app.ts?  │ │\n      │          │               │          │              │ │\n      │          │               │          │ [Once] [Always] [No]\n      │          │               │          └──────┬───────┘ │\n      │          │               │                 │         │\n      │          │               │  permission.replied       │\n      │          │◄──────────────│◄─────────────────────────│\n      │          │               │  { action: \"always\" }     │\n      │          │               │                           │\n      │  继续执行工具             │                           │\n      │                          │                           │\n\n  ─────────────────────────────────────────────────────────────\n\n  question.asked / question.replied — 同样的模式:\n  工具向用户提问 (如 AskUserQuestion 工具)\n  前端显示选项卡 → 用户选择 → 回复\n"])</script><script>self.__next_f.push([1,"15:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2c\"}]}]\n16:[\"$\",\"h3\",null,{\"children\":\"系统事件 (7+ 种)\"}]\n"])</script><script>self.__next_f.push([1,"17:[\"$\",\"table\",null,{\"children\":[[\"$\",\"thead\",null,{\"children\":[\"$\",\"tr\",null,{\"children\":[[\"$\",\"th\",null,{\"children\":\"事件\"}],[\"$\",\"th\",null,{\"children\":\"触发时机\"}],[\"$\",\"th\",null,{\"children\":\"Properties\"}]]}]}],[\"$\",\"tbody\",null,{\"children\":[[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"server.connected\"}]}],[\"$\",\"td\",null,{\"children\":\"客户端 SSE 连接建立\"}],[\"$\",\"td\",null,{\"children\":\"{ client }\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"server.instance.disposed\"}]}],[\"$\",\"td\",null,{\"children\":\"项目实例销毁\"}],[\"$\",\"td\",null,{\"children\":\"{}\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"installation.updated\"}]}],[\"$\",\"td\",null,{\"children\":\"OpenCode 版本更新\"}],[\"$\",\"td\",null,{\"children\":\"{ version }\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"file.edited\"}]}],[\"$\",\"td\",null,{\"children\":\"文件被工具编辑\"}],[\"$\",\"td\",null,{\"children\":\"{ path }\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"lsp.diagnostics\"}]}],[\"$\",\"td\",null,{\"children\":\"LSP 诊断结果更新\"}],[\"$\",\"td\",null,{\"children\":\"{ diagnostics }\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"vcs.branch.updated\"}]}],[\"$\",\"td\",null,{\"children\":\"Git 分支切换检测\"}],[\"$\",\"td\",null,{\"children\":\"{ branch }\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"mcp.tools.changed\"}]}],[\"$\",\"td\",null,{\"children\":\"MCP 工具列表变更\"}],[\"$\",\"td\",null,{\"children\":\"{ tools }\"}]]}]]}]]}]\n"])</script><script>self.__next_f.push([1,"18:[\"$\",\"h2\",null,{\"children\":\"SSE 传输层\"}]\n2d:T893,"])</script><script>self.__next_f.push([1,"\n  ┌──────────────────────────────────────────────────────────┐\n  │  GET /global/event                                        │\n  │                                                          │\n  │  HTTP Response:                                          │\n  │    Status: 200 OK                                        │\n  │    Content-Type: text/event-stream                       │\n  │    Cache-Control: no-cache                               │\n  │    Connection: keep-alive                                │\n  │                                                          │\n  │  Body (无限流):                                           │\n  │    :heartbeat ──────────────────── 每 10 秒              │\n  │                                                          │\n  │    data: {\"directory\":\"/proj\",\"payload\":               │\n  │           {\"type\":\"session.created\",                    │\n  │            \"properties\":{\"info\":{...}}}}               │\n  │                                                          │\n  │    data: {\"directory\":\"/proj\",\"payload\":               │\n  │           {\"type\":\"message.part.delta\",                │\n  │            \"properties\":{\"delta\":\"Hello\"}}}            │\n  │                                                          │\n  │    :heartbeat ──────────────────── 每 10 秒              │\n  │    ...                                                   │\n  └──────────────────────────────────────────────────────────┘\n\n  ═══════ GlobalEvent 包装结构 ═══════\n\n  type GlobalEvent = {\n    directory: string    // 事件来源的项目目录\n                         // 多项目场景: 前端按 directory 过滤\n    payload: {\n      type: string       // 44 种事件类型之一\n      properties: any    // 事件数据\n    }\n  }\n"])</script><script>self.__next_f.push([1,"19:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2d\"}]}]\n1a:[\"$\",\"h2\",null,{\"children\":\"前端消费模式\"}]\n2e:Te27,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────┐\n  │  前端事件处理流水线                                           │\n  │                                                             │\n  │  EventSource(\"/api/global/event\")                           │\n  │       │                                                     │\n  │       │  onmessage(event)                                   │\n  │       ▼                                                     │\n  │  ┌─────────────┐                                            │\n  │  │ JSON.parse() │ → GlobalEvent { directory, payload }      │\n  │  └──────┬──────┘                                            │\n  │         │                                                   │\n  │         ▼                                                   │\n  │  ┌─────────────────────────────────────────────────┐        │\n  │  │  switch (payload.type)                           │        │\n  │  │                                                  │        │\n  │  │  \"session.*\"          → sessionStore 方法        │        │\n  │  │    .created           →   addSession()          │        │\n  │  │    .updated           →   updateSession()       │        │\n  │  │    .deleted           →   removeSession()       │        │\n  │  │                                                  │        │\n  │  │  \"message.*\"          → messageStore 方法        │        │\n  │  │    .updated           →   upsertMessage()       │        │\n  │  │    .removed           →   removeMessage()       │        │\n  │  │    .part.updated      →   upsertPart()          │        │\n  │  │    .part.delta        →   applyDelta()  ★核心   │        │\n  │  │    .part.removed      →   removePart()          │        │\n  │  │                                                  │        │\n  │  │  \"permission.*\"       → permissionUI            │        │\n  │  │    .asked             →   showDialog()          │        │\n  │  │    .replied           →   hideDialog()          │        │\n  │  └─────────────────────┬───────────────────────────┘        │\n  │                        │                                    │\n  │                        ▼                                    │\n  │  ┌─────────────────────────────────────────────────┐        │\n  │  │  Zustand Store 状态更新                           │        │\n  │  │    → React 自动重渲染                             │        │\n  │  │    → 用户看到实时更新的 UI                         │        │\n  │  └─────────────────────────────────────────────────┘        │\n  └─────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"1b:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2e\"}]}]\n1c:[\"$\",\"h3\",null,{\"children\":\"applyDelta — 流式文本核心\"}]\n"])</script><script>self.__next_f.push([1,"1d:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  流式文本的前端累积过程:\\n\\n  时间    Delta 事件              Store 中的 text        UI 显示\\n  ────────────────────────────────────────────────────────────\\n  T1     delta: \\\"让\\\"              \\\"让\\\"                   让▌\\n  T2     delta: \\\"我看\\\"            \\\"让我看\\\"               让我看▌\\n  T3     delta: \\\"看代码\\\"          \\\"让我看看代码\\\"          让我看看代码▌\\n  T4     delta: \\\"...\\\"             \\\"让我看看代码...\\\"       让我看看代码...▌\\n  T5     (part.updated)           \\\"让我看看代码...\\\"       让我看看代码...\\n\\n  ─────────────────────────────────────────────────────────────\\n\\n  // applyDelta 实现:\\n  function applyDelta(messageID, partID, field, delta) {\\n    const parts = this.parts[messageID]\\n    const idx = binarySearch(parts, partID)      // 二分查找\\n    const part = parts[idx]\\n    const current = part[field] ?? \\\"\\\"             // \\\"让我看\\\"\\n    const next = current + delta                  // \\\"让我看\\\" + \\\"看代码\\\" = \\\"让我看看代码\\\"\\n    parts[idx] = { ...part, [field]: next }       // 不可变更新\\n    // → Zustand 触发 React 重渲染\\n  }\\n\"}]}]\n"])</script><script>self.__next_f.push([1,"1e:[\"$\",\"h2\",null,{\"children\":\"SSE 连接生命周期\"}]\n2f:Ta0d,"])</script><script>self.__next_f.push([1,"\n  客户端                              服务端\n    │                                   │\n    │  new EventSource(\"/global/event\") │\n    │──────────────────────────────────►│\n    │                                   │  Bus.subscribeAll(handler)\n    │           200 OK + SSE headers    │\n    │◄──────────────────────────────────│\n    │                                   │\n    │    :heartbeat                     │  每 10 秒\n    │◄──────────────────────────────────│\n    │                                   │\n    │    data: { event... }             │  有事件时推送\n    │◄──────────────────────────────────│\n    │                                   │\n    │    :heartbeat                     │\n    │◄──────────────────────────────────│\n    │                                   │\n    │         (网络断开)                 │\n    │           ✕                       │  检测到连接关闭\n    │                                   │  Bus.unsubscribe(handler)\n    │                                   │\n    │  自动重连 (1s 后)                  │\n    │──────────────────────────────────►│\n    │                                   │  新的 Bus.subscribeAll\n    │           200 OK                  │\n    │◄──────────────────────────────────│\n    │                                   │\n    │  ★ 重连后需要重新拉取数据:         │\n    │    fetchSessions()                │\n    │    fetchMessages(currentSession)  │\n    │                                   │\n\n  ═══════ 断线重连策略 (指数退避) ═══════\n\n  第 1 次断线 → 1 秒后重连\n  第 2 次断线 → 2 秒后重连\n  第 3 次断线 → 4 秒后重连\n  第 4+ 次断线 → 5 秒后重连 (上限)\n  连接成功后 → 重置计数器\n\n  ═══════ 心跳超时检测 ═══════\n  如果 15 秒没收到任何数据 (包括 heartbeat):\n    → 认为连接已断开\n    → 主动关闭 EventSource\n    → 触发重连流程\n"])</script><script>self.__next_f.push([1,"1f:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2f\"}]}]\n20:[\"$\",\"h2\",null,{\"children\":\"GlobalBus — 跨实例广播\"}]\n30:T968,"])</script><script>self.__next_f.push([1,"\n  ┌───────────────────────────────────────────────────────┐\n  │  OpenCode 服务器进程                                    │\n  │                                                       │\n  │  Instance A (/proj-a)     Instance B (/proj-b)        │\n  │  ┌─────────────────┐     ┌─────────────────┐         │\n  │  │  Bus (本地)       │     │  Bus (本地)       │         │\n  │  │  session.created │     │  file.edited    │         │\n  │  └────────┬────────┘     └────────┬────────┘         │\n  │           │                       │                   │\n  │           ▼                       ▼                   │\n  │  ┌─────────────────────────────────────────────┐     │\n  │  │              GlobalBus                       │     │\n  │  │  EventEmitter (进程级单例)                    │     │\n  │  │                                             │     │\n  │  │  emit({ directory: \"/proj-a\", payload })    │     │\n  │  │  emit({ directory: \"/proj-b\", payload })    │     │\n  │  └──────┬──────────────────────┬───────────────┘     │\n  │         │                      │                     │\n  │         ▼                      ▼                     │\n  │    SSE Client 1           SSE Client 2               │\n  │    (打开 /proj-a)         (打开 /proj-b)              │\n  │    收到所有事件             收到所有事件                │\n  │    按 directory 过滤       按 directory 过滤           │\n  └───────────────────────────────────────────────────────┘\n\n  // 前端过滤:\n  eventSource.onmessage = (event) =\u003e {\n    const { directory, payload } = JSON.parse(event.data)\n    if (directory !== currentProject.directory) return  // 忽略其他项目\n    handleEvent(payload)\n  }\n"])</script><script>self.__next_f.push([1,"21:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$30\"}]}]\n22:[\"$\",\"h2\",null,{\"children\":\"事件在整个系统中的位置\"}]\n31:Tf06,"])</script><script>self.__next_f.push([1,"\n  用户点击 \"Send\"\n       │\n       ▼\n  POST /session/{id}/prompt_async\n       │\n       ▼\n  ┌────────────────────────────────────────────────────────────┐\n  │  prompt.ts: 创建 UserMessage                                │\n  │                                                            │\n  │  Database.transaction() {                                  │\n  │    INSERT INTO message ...                                 │\n  │    INSERT INTO part ...                                    │\n  │                                                            │\n  │    Database.effect(() =\u003e {                                 │\n  │      Bus.publish(\"message.updated\", { info: userMsg })     │  ──► SSE ──► 前端显示用户消息\n  │      Bus.publish(\"message.part.updated\", { part: text })   │  ──► SSE ──► 前端显示文字\n  │    })                                                      │\n  │  }                                                         │\n  │  // ★ 事务提交 → effect 执行 → 事件发布                      │\n  └────────────────────────────────────────────────────────────┘\n       │\n       ▼\n  ┌────────────────────────────────────────────────────────────┐\n  │  processor.ts: Agent 循环                                   │\n  │                                                            │\n  │  for await (event of llm.stream) {                         │\n  │                                                            │\n  │    text-delta:                                             │\n  │      Bus.publish(\"message.part.delta\", { delta: \"Hi\" })    │  ──► SSE ──► 前端追加文字\n  │                                                            │\n  │    tool-call:                                              │\n  │      Bus.publish(\"part.updated\", { status: \"running\" })    │  ──► SSE ──► 前端黄色卡片\n  │                                                            │\n  │      ctx.ask() → 需要权限:                                  │\n  │      Bus.publish(\"permission.asked\", { request })          │  ──► SSE ──► 前端弹出确认框\n  │      ... 等待 ...                                          │\n  │      Bus.subscribe(\"permission.replied\", handler)          │  ◄── SSE ◄── 用户点击 Allow\n  │                                                            │\n  │    tool-result:                                            │\n  │      Bus.publish(\"part.updated\", { status: \"completed\" })  │  ──► SSE ──► 前端绿色卡片\n  │                                                            │\n  │    finish-step:                                            │\n  │      Bus.publish(\"session.diff\", { diffs })                │  ──► SSE ──► 前端更新 diff\n  │  }                                                         │\n  │                                                            │\n  │  Bus.publish(\"message.updated\", { info: { completed } })   │  ──► SSE ──► 前端停止 loading\n  │  Bus.publish(\"session.idle\", { sessionID })                │  ──► SSE ──► 前端状态恢复\n  └────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"23:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$31\"}]}]\n24:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n"])</script><script>self.__next_f.push([1,"25:[\"$\",\"ul\",null,{\"children\":[[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"EventEmitter 足够了\"}],\" — 不需要 Redis Pub/Sub 或 Kafka。 OpenCode 是单进程嵌入式应用，内存级 EventEmitter 延迟最低、最简单。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"Database.effect() 是一致性保障\"}],\" — 事件一定在数据写入成功后才发布。 事务回滚时副作用不会执行，前端永远不会收到\\\"数据还不存在\\\"的虚假事件。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"44 种事件覆盖所有状态变更\"}],\" — 从 Session 创建到 Git 分支切换， 所有内部状态变化都有对应事件。前端可以构建完全响应式的 UI。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"SSE 而非 WebSocket\"}],\" — SSE 是单向推送（服务端→客户端）， 恰好满足需求。比 WebSocket 更简单（浏览器原生支持、自动重连、无需握手协议）。 前端的操作（发消息、回复权限）走普通 HTTP POST。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"GlobalEvent 的 directory 字段实现多项目隔离\"}],\" — 一个 SSE 连接 接收所有项目的事件，前端按 directory 过滤。简单且无需为每个项目维护独立连接。\"]}]]}]\n"])</script><script>self.__next_f.push([1,"26:[\"$\",\"$L32\",null,{\"children\":[\"$L33\",[\"$\",\"$L34\",null,{\"promise\":\"$@35\"}]]}]\n27:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L36\",null,{\"children\":\"$L37\"}],null],[\"$\",\"$L38\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$39\",null,{\"fallback\":null,\"children\":\"$L3a\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"37:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n33:null\n"])</script><script>self.__next_f.push([1,"35:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"3a:\"$35:metadata\"\n"])</script></body></html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html><!--bye4CeShaPMDcn_ypi8Us--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-103dca6b3bf7cb84.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Config 配置系统</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/config/config.ts</code></p><h2>概述</h2><p>OpenCode 使用<strong>四层配置深度合并</strong>策略。配置文件名为 <code>opencode.json</code>， 可以放在系统级、用户级、项目级、目录级不同位置。层级越低（越具体），优先级越高。 所有配置都经过 <strong>Zod Schema</strong> 运行时校验。</p><h2>四层合并可视化</h2><pre><code>
+  ┌─────────────────────────────────────────────────────────────┐
+  │                    配置加载与合并流程                          │
+  │                                                             │
+  │  第 1 层 (最低优先级)                                        │
+  │  ┌───────────────────────────────────────────────────────┐  │
+  │  │  系统管理配置 (Enterprise)                              │  │
+  │  │  Linux:   /etc/opencode/opencode.json                 │  │
+  │  │  macOS:   /etc/opencode/opencode.json                 │  │
+  │  │  Windows: C:\ProgramData\opencode\opencode.json       │  │
+  │  │  场景: 企业 IT 统一配置 (禁止某些 Provider, 限制权限)   │  │
+  │  └────────────────────────┬──────────────────────────────┘  │
+  │                           │ deep merge ▼                    │
+  │  第 2 层                                                     │
+  │  ┌───────────────────────────────────────────────────────┐  │
+  │  │  用户配置 (User)                                       │  │
+  │  │  ~/.config/opencode/opencode.json                     │  │
+  │  │  场景: 个人 API Key, 偏好的默认模型, 通用权限          │  │
+  │  └────────────────────────┬──────────────────────────────┘  │
+  │                           │ deep merge ▼                    │
+  │  第 3 层                                                     │
+  │  ┌───────────────────────────────────────────────────────┐  │
+  │  │  项目配置 (Project — Git worktree 根目录)               │  │
+  │  │  {git_worktree}/.opencode/opencode.json               │  │
+  │  │  场景: 项目特定的模型、插件、LSP 配置                   │  │
+  │  └────────────────────────┬──────────────────────────────┘  │
+  │                           │ deep merge ▼                    │
+  │  第 4 层 (最高优先级)                                        │
+  │  ┌───────────────────────────────────────────────────────┐  │
+  │  │  目录配置 (Directory — 当前工作目录)                     │  │
+  │  │  {cwd}/.opencode/opencode.json                        │  │
+  │  │  场景: monorepo 中不同子目录用不同配置                   │  │
+  │  └────────────────────────┬──────────────────────────────┘  │
+  │                           │                                 │
+  │                           ▼                                 │
+  │  ┌───────────────────────────────────────────────────────┐  │
+  │  │  环境变量覆盖 (最终覆盖)                                │  │
+  │  │  ANTHROPIC_API_KEY, OPENCODE_PORT, ...                 │  │
+  │  └────────────────────────┬──────────────────────────────┘  │
+  │                           │                                 │
+  │                           ▼                                 │
+  │  ┌───────────────────────────────────────────────────────┐  │
+  │  │  Zod Schema 校验                                       │  │
+  │  │  通过 → 最终配置对象                                    │  │
+  │  │  失败 → 明确错误信息 (哪个字段, 什么问题)               │  │
+  │  └───────────────────────────────────────────────────────┘  │
+  └─────────────────────────────────────────────────────────────┘
+</code></pre><h2>Deep Merge 规则</h2><pre><code>
+  ═══════ Deep Merge vs Shallow Merge ═══════
+
+  Shallow Merge (浅合并, ❌ 不是 OpenCode 的方式):
+    base:    { permission: { bash: &quot;ask&quot;, edit: { &quot;*&quot;: &quot;allow&quot; } } }
+    overlay: { permission: { bash: &quot;allow&quot; } }
+    结果:    { permission: { bash: &quot;allow&quot; } }
+    → edit 配置丢失了!
+
+  Deep Merge (深合并, ✓ OpenCode 的方式):
+    base:    { permission: { bash: &quot;ask&quot;, edit: { &quot;*&quot;: &quot;allow&quot; } } }
+    overlay: { permission: { bash: &quot;allow&quot; } }
+    结果:    { permission: { bash: &quot;allow&quot;, edit: { &quot;*&quot;: &quot;allow&quot; } } }
+    → edit 配置保留! bash 被覆盖
+
+  ═══════ 完整示例 ═══════
+
+  用户配置 (~/.config/opencode/opencode.json):
+  ┌────────────────────────────────────┐
+  │ {                                  │
+  │   &quot;provider&quot;: {                    │
+  │     &quot;anthropic&quot;: {                 │
+  │       &quot;api_key&quot;: &quot;sk-user-key&quot;     │
+  │     }                              │
+  │   },                               │
+  │   &quot;permission&quot;: {                  │
+  │     &quot;bash&quot;: &quot;ask&quot;,                 │
+  │     &quot;edit&quot;: { &quot;*&quot;: &quot;allow&quot; }       │
+  │   },                               │
+  │   &quot;default_model&quot;: &quot;anthropic/     │
+  │     claude-opus-4&quot;                 │
+  │ }                                  │
+  └────────────────────────────────────┘
+           │ deep merge
+           ▼
+  项目配置 (.opencode/opencode.json):
+  ┌────────────────────────────────────┐
+  │ {                                  │
+  │   &quot;permission&quot;: {                  │
+  │     &quot;bash&quot;: &quot;allow&quot;,              │  ← 覆盖用户配置的 &quot;ask&quot;
+  │     &quot;edit&quot;: { &quot;.env*&quot;: &quot;deny&quot; }    │  ← 追加到 edit 规则
+  │   },                               │
+  │   &quot;default_model&quot;: &quot;anthropic/     │  ← 覆盖用户配置
+  │     claude-sonnet-4&quot;,              │
+  │   &quot;plugin&quot;: [&quot;my-plugin@1.0&quot;]      │  ← 项目独有
+  │ }                                  │
+  └────────────────────────────────────┘
+           │
+           ▼
+  合并结果:
+  ┌────────────────────────────────────┐
+  │ {                                  │
+  │   &quot;provider&quot;: {                    │
+  │     &quot;anthropic&quot;: {                 │  ← 来自用户配置
+  │       &quot;api_key&quot;: &quot;sk-user-key&quot;     │
+  │     }                              │
+  │   },                               │
+  │   &quot;permission&quot;: {                  │
+  │     &quot;bash&quot;: &quot;allow&quot;,              │  ← 项目配置覆盖
+  │     &quot;edit&quot;: {                      │
+  │       &quot;*&quot;: &quot;allow&quot;,               │  ← 来自用户配置
+  │       &quot;.env*&quot;: &quot;deny&quot;             │  ← 来自项目配置 (追加)
+  │     }                              │
+  │   },                               │
+  │   &quot;default_model&quot;: &quot;anthropic/     │  ← 项目配置覆盖
+  │     claude-sonnet-4&quot;,              │
+  │   &quot;plugin&quot;: [&quot;my-plugin@1.0&quot;]      │  ← 来自项目配置
+  │ }                                  │
+  └────────────────────────────────────┘
+</code></pre><h2>完整配置 Schema</h2><pre><code>// opencode.json — 所有可配置项
+
+{
+  // ═══════ Provider 配置 ═══════
+  &quot;provider&quot;: {
+    &quot;anthropic&quot;: {
+      &quot;api_key&quot;: &quot;sk-ant-...&quot;,     // API Key (也可用环境变量)
+      &quot;base_url&quot;: &quot;https://...&quot;,   // 自定义 API 端点
+      &quot;headers&quot;: { }               // 自定义请求头
+    },
+    &quot;openai&quot;: { &quot;api_key&quot;: &quot;sk-...&quot; },
+    // 支持 15+ Provider (见 Provider 章节)
+  },
+
+  // ═══════ Model 配置 ═══════
+  &quot;model&quot;: {
+    &quot;claude-opus-4&quot;: {              // 覆盖内置模型参数
+      &quot;context_window&quot;: 200000,
+      &quot;max_output_tokens&quot;: 16384,
+      &quot;cost&quot;: { &quot;input&quot;: 15.0, &quot;output&quot;: 75.0, &quot;cache&quot;: 1.5 }
+    },
+    &quot;my-model&quot;: {                   // 自定义模型
+      &quot;provider&quot;: &quot;openai&quot;,
+      &quot;id&quot;: &quot;my-fine-tuned-model&quot;,
+      &quot;context_window&quot;: 128000
+    }
+  },
+
+  // ═══════ 默认模型 ═══════
+  &quot;default_model&quot;: &quot;anthropic/claude-opus-4&quot;,
+
+  // ═══════ Agent 配置 ═══════
+  &quot;agent&quot;: {
+    &quot;my-agent&quot;: {
+      &quot;name&quot;: &quot;My Custom Agent&quot;,
+      &quot;description&quot;: &quot;Specialized for specific tasks&quot;,
+      &quot;mode&quot;: &quot;primary&quot;,          // &quot;primary&quot; | &quot;subagent&quot; | &quot;all&quot;
+      &quot;model&quot;: &quot;anthropic/claude-sonnet-4&quot;,
+      &quot;permission&quot;: {
+        &quot;edit&quot;: { &quot;*.ts&quot;: &quot;allow&quot; },
+        &quot;bash&quot;: &quot;ask&quot;
+      }
+    }
+  },
+  &quot;default_agent&quot;: &quot;default&quot;,
+
+  // ═══════ LSP 配置 ═══════
+  &quot;lsp&quot;: {
+    &quot;typescript&quot;: {
+      &quot;disabled&quot;: false,
+      &quot;extensions&quot;: [&quot;.ts&quot;, &quot;.tsx&quot;],
+      &quot;command&quot;: [&quot;typescript-language-server&quot;, &quot;--stdio&quot;],
+      &quot;env&quot;: { &quot;NODE_ENV&quot;: &quot;production&quot; },
+      &quot;initialization&quot;: { &quot;preferences&quot;: { } }
+    },
+    &quot;python&quot;: { &quot;command&quot;: [&quot;pyright&quot;, &quot;--stdio&quot;] }
+  },
+
+  // ═══════ 权限配置 ═══════
+  &quot;permission&quot;: {
+    &quot;*&quot;: &quot;allow&quot;,
+    &quot;bash&quot;: &quot;ask&quot;,
+    &quot;edit&quot;: { &quot;*&quot;: &quot;allow&quot;, &quot;.env*&quot;: &quot;deny&quot; },
+    &quot;external_directory&quot;: &quot;ask&quot;
+  },
+
+  // ═══════ 插件 ═══════
+  &quot;plugin&quot;: [
+    &quot;opencode-anthropic-auth@0.0.13&quot;,  // NPM 包
+    &quot;file:///path/to/local/plugin.js&quot;  // 本地文件
+  ],
+
+  // ═══════ 压缩配置 ═══════
+  &quot;compaction&quot;: {
+    &quot;reserved&quot;: 20000               // 预留 token 空间 (默认 20K)
+  },
+
+  // ═══════ 共享配置 ═══════
+  &quot;share&quot;: &quot;auto&quot;,                  // &quot;auto&quot; | &quot;manual&quot; | &quot;disabled&quot;
+
+  // ═══════ 文件监听 ═══════
+  &quot;watcher&quot;: {
+    &quot;ignore&quot;: [&quot;*.log&quot;, &quot;tmp/**&quot;]
+  },
+
+  // ═══════ 实验性功能 ═══════
+  &quot;experimental&quot;: {
+    &quot;lsp&quot;: true,
+    &quot;batch&quot;: true,
+    &quot;filewatcher&quot;: true,
+    &quot;plan_mode&quot;: true
+  }
+}</code></pre><h2>环境变量</h2><pre><code>
+  ┌─────────────────────────────┬──────────────────────────────────┐
+  │  环境变量                    │  用途                             │
+  ├─────────────────────────────┼──────────────────────────────────┤
+  │  ANTHROPIC_API_KEY          │  Anthropic API Key               │
+  │  OPENAI_API_KEY             │  OpenAI API Key                  │
+  │  GOOGLE_GENERATIVE_AI_      │  Google AI API Key               │
+  │    API_KEY                  │                                  │
+  │  XAI_API_KEY                │  xAI (Grok) API Key             │
+  │  MISTRAL_API_KEY            │  Mistral API Key                 │
+  ├─────────────────────────────┼──────────────────────────────────┤
+  │  OPENCODE_PORT              │  HTTP 服务端口 (默认 4096)       │
+  │  OPENCODE_HOST              │  监听地址 (默认 localhost)       │
+  ├─────────────────────────────┼──────────────────────────────────┤
+  │  OPENCODE_ENABLE_EXA        │  启用 Exa 搜索工具              │
+  │  OPENCODE_EXPERIMENTAL_LSP  │  启用实验性 LSP                  │
+  │  OPENCODE_EXPERIMENTAL_     │  启用文件监听                    │
+  │    FILEWATCHER              │                                  │
+  ├─────────────────────────────┼──────────────────────────────────┤
+  │  OPENCODE_DEBUG             │  调试模式                        │
+  │  OPENCODE_LOG_LEVEL         │  日志级别 (debug/info/warn)     │
+  └─────────────────────────────┴──────────────────────────────────┘
+
+  ★ 环境变量优先级高于配置文件中的对应值
+</code></pre><h2>TUI 配置 (独立文件)</h2><pre><code>// ~/.config/opencode/tui.json
+// 终端 UI 的专用配置，与 opencode.json 分开
+
+{
+  &quot;theme&quot;: &quot;dark&quot;,               // UI 主题
+  &quot;scroll_speed&quot;: 1.0,           // 滚动速度
+  &quot;scroll_acceleration&quot;: {
+    &quot;enabled&quot;: true
+  },
+  &quot;diff_style&quot;: &quot;auto&quot;,          // &quot;auto&quot; | &quot;inline&quot; | &quot;side-by-side&quot;
+  &quot;keybinds&quot;: {                  // 自定义快捷键
+    &quot;quit&quot;: &quot;q&quot;,
+    &quot;scroll_down&quot;: &quot;j&quot;,
+    &quot;scroll_up&quot;: &quot;k&quot;
+  }
+}</code></pre><h2>配置加载时序</h2><pre><code>
+  OpenCode 启动
+       │
+       ├── 1. 检测运行环境 (OS, 路径)
+       │
+       ├── 2. 加载配置文件 (按优先级)
+       │       ├── /etc/opencode/opencode.json
+       │       ├── ~/.config/opencode/opencode.json
+       │       ├── {git_worktree}/.opencode/opencode.json
+       │       └── {cwd}/.opencode/opencode.json
+       │
+       ├── 3. Deep merge 所有层
+       │
+       ├── 4. 环境变量覆盖
+       │
+       ├── 5. Zod schema 校验
+       │       ├── 通过 → 继续
+       │       └── 失败 → 报错 + 退出
+       │
+       ├── 6. Plugin.config hook
+       │       └── 插件可以动态修改配置
+       │
+       └── 7. 最终配置对象 → 全局可用
+</code></pre><h2>设计要点</h2><ul><li><strong>四层合并满足所有场景</strong> — 企业 IT 管控、个人偏好、项目特定、 monorepo 子目录，每一层都有对应的配置位置。</li><li><strong>Deep Merge 而非覆盖</strong> — 嵌套对象递归合并，不会因为设置一个字段而丢失其他字段。</li><li><strong>Zod 运行时校验</strong> — 配置加载时通过 Zod schema 验证，无效配置会给出明确错误 （哪个字段、什么问题），而不是运行时莫名其妙地出错。</li><li><strong>环境变量最终覆盖</strong> — API Key 等敏感信息不该写在配置文件中（会进 Git）， 环境变量是最安全的方式，且优先级最高。</li><li><strong>TUI 配置独立</strong> — 终端 UI 配置与核心配置分离， 避免 UI 偏好影响核心功能。</li></ul></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"210\",\"static/chunks/app/guide/layout-103dca6b3bf7cb84.js\"],\"default\"]\n17:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n8:T13fd,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────┐\n  │                    配置加载与合并流程                          │\n  │                                                             │\n  │  第 1 层 (最低优先级)                                        │\n  │  ┌───────────────────────────────────────────────────────┐  │\n  │  │  系统管理配置 (Enterprise)                              │  │\n  │  │  Linux:   /etc/opencode/opencode.json                 │  │\n  │  │  macOS:   /etc/opencode/opencode.json                 │  │\n  │  │  Windows: C:\\ProgramData\\opencode\\opencode.json       │  │\n  │  │  场景: 企业 IT 统一配置 (禁止某些 Provider, 限制权限)   │  │\n  │  └────────────────────────┬──────────────────────────────┘  │\n  │                           │ deep merge ▼                    │\n  │  第 2 层                                                     │\n  │  ┌───────────────────────────────────────────────────────┐  │\n  │  │  用户配置 (User)                                       │  │\n  │  │  ~/.config/opencode/opencode.json                     │  │\n  │  │  场景: 个人 API Key, 偏好的默认模型, 通用权限          │  │\n  │  └────────────────────────┬──────────────────────────────┘  │\n  │                           │ deep merge ▼                    │\n  │  第 3 层                                                     │\n  │  ┌───────────────────────────────────────────────────────┐  │\n  │  │  项目配置 (Project — Git worktree 根目录)               │  │\n  │  │  {git_worktree}/.opencode/opencode.json               │  │\n  │  │  场景: 项目特定的模型、插件、LSP 配置                   │  │\n  │  └────────────────────────┬──────────────────────────────┘  │\n  │                           │ deep merge ▼                    │\n  │  第 4 层 (最高优先级)                                        │\n  │  ┌───────────────────────────────────────────────────────┐  │\n  │  │  目录配置 (Directory — 当前工作目录)                     │  │\n  │  │  {cwd}/.opencode/opencode.json                        │  │\n  │  │  场景: monorepo 中不同子目录用不同配置                   │  │\n  │  └────────────────────────┬──────────────────────────────┘  │\n  │                           │                                 │\n  │                           ▼                                 │\n  │  ┌───────────────────────────────────────────────────────┐  │\n  │  │  环境变量覆盖 (最终覆盖)                                │  │\n  │  │  ANTHROPIC_API_KEY, OPENCODE_PORT, ...                 │  │\n  │  └────────────────────────┬──────────────────────────────┘  │\n  │                           │                                 │\n  │                           ▼                                 │\n  │  ┌───────────────────────────────────────────────────────┐  │\n  │  │  Zod Schema 校验                                       │  │\n  │  │  通过 → 最终配置对象                                    │  │\n  │  │  失败 → 明确错误信息 (哪个字段, 什么问题)               │  │\n  │  └───────────────────────────────────────────────────────┘  │\n  └─────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"bye4CeShaPMDcn-ypi8Us\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"config\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"config\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"config\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Config 配置系统\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/config/config.ts\"}]]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"OpenCode 使用\",[\"$\",\"strong\",null,{\"children\":\"四层配置深度合并\"}],\"策略。配置文件名为 \",[\"$\",\"code\",null,{\"children\":\"opencode.json\"}],\"， 可以放在系统级、用户级、项目级、目录级不同位置。层级越低（越具体），优先级越高。 所有配置都经过 \",[\"$\",\"strong\",null,{\"children\":\"Zod Schema\"}],\" 运行时校验。\"]}],[\"$\",\"h2\",null,{\"children\":\"四层合并可视化\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$8\"}]}],\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\"]}],null,\"$L15\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L16\",false]],\"m\":\"$undefined\",\"G\":[\"$17\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"1b:I[1474,[],\"OutletBoundary\"]\n1d:I[9783,[],\"AsyncMetadataOutlet\"]\n1f:I[1474,[],\"ViewportBoundary\"]\n21:I[1474,[],\"MetadataBoundary\"]\n22:\"$Sreact.suspense\"\n9:[\"$\",\"h2\",null,{\"children\":\"Deep Merge 规则\"}]\n18:Tdea,"])</script><script>self.__next_f.push([1,"\n  ═══════ Deep Merge vs Shallow Merge ═══════\n\n  Shallow Merge (浅合并, ❌ 不是 OpenCode 的方式):\n    base:    { permission: { bash: \"ask\", edit: { \"*\": \"allow\" } } }\n    overlay: { permission: { bash: \"allow\" } }\n    结果:    { permission: { bash: \"allow\" } }\n    → edit 配置丢失了!\n\n  Deep Merge (深合并, ✓ OpenCode 的方式):\n    base:    { permission: { bash: \"ask\", edit: { \"*\": \"allow\" } } }\n    overlay: { permission: { bash: \"allow\" } }\n    结果:    { permission: { bash: \"allow\", edit: { \"*\": \"allow\" } } }\n    → edit 配置保留! bash 被覆盖\n\n  ═══════ 完整示例 ═══════\n\n  用户配置 (~/.config/opencode/opencode.json):\n  ┌────────────────────────────────────┐\n  │ {                                  │\n  │   \"provider\": {                    │\n  │     \"anthropic\": {                 │\n  │       \"api_key\": \"sk-user-key\"     │\n  │     }                              │\n  │   },                               │\n  │   \"permission\": {                  │\n  │     \"bash\": \"ask\",                 │\n  │     \"edit\": { \"*\": \"allow\" }       │\n  │   },                               │\n  │   \"default_model\": \"anthropic/     │\n  │     claude-opus-4\"                 │\n  │ }                                  │\n  └────────────────────────────────────┘\n           │ deep merge\n           ▼\n  项目配置 (.opencode/opencode.json):\n  ┌────────────────────────────────────┐\n  │ {                                  │\n  │   \"permission\": {                  │\n  │     \"bash\": \"allow\",              │  ← 覆盖用户配置的 \"ask\"\n  │     \"edit\": { \".env*\": \"deny\" }    │  ← 追加到 edit 规则\n  │   },                               │\n  │   \"default_model\": \"anthropic/     │  ← 覆盖用户配置\n  │     claude-sonnet-4\",              │\n  │   \"plugin\": [\"my-plugin@1.0\"]      │  ← 项目独有\n  │ }                                  │\n  └────────────────────────────────────┘\n           │\n           ▼\n  合并结果:\n  ┌────────────────────────────────────┐\n  │ {                                  │\n  │   \"provider\": {                    │\n  │     \"anthropic\": {                 │  ← 来自用户配置\n  │       \"api_key\": \"sk-user-key\"     │\n  │     }                              │\n  │   },                               │\n  │   \"permission\": {                  │\n  │     \"bash\": \"allow\",              │  ← 项目配置覆盖\n  │     \"edit\": {                      │\n  │       \"*\": \"allow\",               │  ← 来自用户配置\n  │       \".env*\": \"deny\"             │  ← 来自项目配置 (追加)\n  │     }                              │\n  │   },                               │\n  │   \"default_model\": \"anthropic/     │  ← 项目配置覆盖\n  │     claude-sonnet-4\",              │\n  │   \"plugin\": [\"my-plugin@1.0\"]      │  ← 来自项目配置\n  │ }                                  │\n  └────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$18\"}]}]\nb:[\"$\",\"h2\",null,{\"children\":\"完整配置 Schema\"}]\n19:Taaa,"])</script><script>self.__next_f.push([1,"// opencode.json — 所有可配置项\n\n{\n  // ═══════ Provider 配置 ═══════\n  \"provider\": {\n    \"anthropic\": {\n      \"api_key\": \"sk-ant-...\",     // API Key (也可用环境变量)\n      \"base_url\": \"https://...\",   // 自定义 API 端点\n      \"headers\": { }               // 自定义请求头\n    },\n    \"openai\": { \"api_key\": \"sk-...\" },\n    // 支持 15+ Provider (见 Provider 章节)\n  },\n\n  // ═══════ Model 配置 ═══════\n  \"model\": {\n    \"claude-opus-4\": {              // 覆盖内置模型参数\n      \"context_window\": 200000,\n      \"max_output_tokens\": 16384,\n      \"cost\": { \"input\": 15.0, \"output\": 75.0, \"cache\": 1.5 }\n    },\n    \"my-model\": {                   // 自定义模型\n      \"provider\": \"openai\",\n      \"id\": \"my-fine-tuned-model\",\n      \"context_window\": 128000\n    }\n  },\n\n  // ═══════ 默认模型 ═══════\n  \"default_model\": \"anthropic/claude-opus-4\",\n\n  // ═══════ Agent 配置 ═══════\n  \"agent\": {\n    \"my-agent\": {\n      \"name\": \"My Custom Agent\",\n      \"description\": \"Specialized for specific tasks\",\n      \"mode\": \"primary\",          // \"primary\" | \"subagent\" | \"all\"\n      \"model\": \"anthropic/claude-sonnet-4\",\n      \"permission\": {\n        \"edit\": { \"*.ts\": \"allow\" },\n        \"bash\": \"ask\"\n      }\n    }\n  },\n  \"default_agent\": \"default\",\n\n  // ═══════ LSP 配置 ═══════\n  \"lsp\": {\n    \"typescript\": {\n      \"disabled\": false,\n      \"extensions\": [\".ts\", \".tsx\"],\n      \"command\": [\"typescript-language-server\", \"--stdio\"],\n      \"env\": { \"NODE_ENV\": \"production\" },\n      \"initialization\": { \"preferences\": { } }\n    },\n    \"python\": { \"command\": [\"pyright\", \"--stdio\"] }\n  },\n\n  // ═══════ 权限配置 ═══════\n  \"permission\": {\n    \"*\": \"allow\",\n    \"bash\": \"ask\",\n    \"edit\": { \"*\": \"allow\", \".env*\": \"deny\" },\n    \"external_directory\": \"ask\"\n  },\n\n  // ═══════ 插件 ═══════\n  \"plugin\": [\n    \"opencode-anthropic-auth@0.0.13\",  // NPM 包\n    \"file:///path/to/local/plugin.js\"  // 本地文件\n  ],\n\n  // ═══════ 压缩配置 ═══════\n  \"compaction\": {\n    \"reserved\": 20000               // 预留 token 空间 (默认 20K)\n  },\n\n  // ═══════ 共享配置 ═══════\n  \"share\": \"auto\",                  // \"auto\" | \"manual\" | \"disabled\"\n\n  // ═══════ 文件监听 ═══════\n  \"watcher\": {\n    \"ignore\": [\"*.log\", \"tmp/**\"]\n  },\n\n  // ═══════ 实验性功能 ═══════\n  \"experimental\": {\n    \"lsp\": true,\n    \"batch\": true,\n    \"filewatcher\": true,\n    \"plan_mode\": true\n  }\n}"])</script><script>self.__next_f.push([1,"c:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$19\"}]}]\nd:[\"$\",\"h2\",null,{\"children\":\"环境变量\"}]\n1a:T984,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────┬──────────────────────────────────┐\n  │  环境变量                    │  用途                             │\n  ├─────────────────────────────┼──────────────────────────────────┤\n  │  ANTHROPIC_API_KEY          │  Anthropic API Key               │\n  │  OPENAI_API_KEY             │  OpenAI API Key                  │\n  │  GOOGLE_GENERATIVE_AI_      │  Google AI API Key               │\n  │    API_KEY                  │                                  │\n  │  XAI_API_KEY                │  xAI (Grok) API Key             │\n  │  MISTRAL_API_KEY            │  Mistral API Key                 │\n  ├─────────────────────────────┼──────────────────────────────────┤\n  │  OPENCODE_PORT              │  HTTP 服务端口 (默认 4096)       │\n  │  OPENCODE_HOST              │  监听地址 (默认 localhost)       │\n  ├─────────────────────────────┼──────────────────────────────────┤\n  │  OPENCODE_ENABLE_EXA        │  启用 Exa 搜索工具              │\n  │  OPENCODE_EXPERIMENTAL_LSP  │  启用实验性 LSP                  │\n  │  OPENCODE_EXPERIMENTAL_     │  启用文件监听                    │\n  │    FILEWATCHER              │                                  │\n  ├─────────────────────────────┼──────────────────────────────────┤\n  │  OPENCODE_DEBUG             │  调试模式                        │\n  │  OPENCODE_LOG_LEVEL         │  日志级别 (debug/info/warn)     │\n  └─────────────────────────────┴──────────────────────────────────┘\n\n  ★ 环境变量优先级高于配置文件中的对应值\n"])</script><script>self.__next_f.push([1,"e:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$1a\"}]}]\nf:[\"$\",\"h2\",null,{\"children\":\"TUI 配置 (独立文件)\"}]\n10:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// ~/.config/opencode/tui.json\\n// 终端 UI 的专用配置，与 opencode.json 分开\\n\\n{\\n  \\\"theme\\\": \\\"dark\\\",               // UI 主题\\n  \\\"scroll_speed\\\": 1.0,           // 滚动速度\\n  \\\"scroll_acceleration\\\": {\\n    \\\"enabled\\\": true\\n  },\\n  \\\"diff_style\\\": \\\"auto\\\",          // \\\"auto\\\" | \\\"inline\\\" | \\\"side-by-side\\\"\\n  \\\"keybinds\\\": {                  // 自定义快捷键\\n    \\\"quit\\\": \\\"q\\\",\\n    \\\"scroll_down\\\": \\\"j\\\",\\n    \\\"scroll_up\\\": \\\"k\\\"\\n  }\\n}\"}]}]\n11:[\"$\",\"h2\",null,{\"children\":\"配置加载时序\"}]\n12:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  OpenCode 启动\\n       │\\n       ├── 1. 检测运行环境 (OS, 路径)\\n       │\\n       ├── 2. 加载配置文件 (按优先级)\\n       │       ├── /etc/opencode/opencode.json\\n       │       ├── ~/.config/opencode/opencode.json\\n       │       ├── {git_worktree}/.opencode/opencode.json\\n       │       └── {cwd}/.opencode/opencode.json\\n       │\\n       ├── 3. Deep merge 所有层\\n       │\\n       ├── 4. 环境变量覆盖\\n       │\\n       ├── 5. Zod schema 校验\\n       │       ├── 通过 → 继续\\n       │       └── 失败 → 报错 + 退出\\n       │\\n       ├── 6. Plugin.config hook\\n       │       └── 插件可以动态修改配置\\n       │\\n       └── 7. 最终配置对象 → 全局可用\\n\"}]}]\n13:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n14:[\"$\",\"ul\",null,{\"children\":[[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"四层合并满足所有场景\"}],\" — 企业 IT 管控、个人偏好、项目特定、 monorepo 子目录，每一层都有对应的配置位置。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"Deep Merge 而非覆盖\"}],\" — 嵌套对象递归合并，不会"])</script><script>self.__next_f.push([1,"因为设置一个字段而丢失其他字段。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"Zod 运行时校验\"}],\" — 配置加载时通过 Zod schema 验证，无效配置会给出明确错误 （哪个字段、什么问题），而不是运行时莫名其妙地出错。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"环境变量最终覆盖\"}],\" — API Key 等敏感信息不该写在配置文件中（会进 Git）， 环境变量是最安全的方式，且优先级最高。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"TUI 配置独立\"}],\" — 终端 UI 配置与核心配置分离， 避免 UI 偏好影响核心功能。\"]}]]}]\n15:[\"$\",\"$L1b\",null,{\"children\":[\"$L1c\",[\"$\",\"$L1d\",null,{\"promise\":\"$@1e\"}]]}]\n16:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L1f\",null,{\"children\":\"$L20\"}],null],[\"$\",\"$L21\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$22\",null,{\"fallback\":null,\"children\":\"$L23\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"20:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n1c:null\n"])</script><script>self.__next_f.push([1,"1e:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"23:\"$1e:metadata\"\n"])</script></body></html>

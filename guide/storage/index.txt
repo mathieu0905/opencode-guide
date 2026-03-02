@@ -1,0 +1,298 @@
+1:"$Sreact.fragment"
+2:I[1518,["1","static/chunks/1-7468df48e3930e95.js","177","static/chunks/app/layout-df5ddfbcf51af9a3.js"],"SSEProvider"]
+3:I[8139,[],""]
+4:I[9479,[],""]
+5:I[2818,[],"ClientSegmentRoot"]
+6:I[5289,["210","static/chunks/app/guide/layout-103dca6b3bf7cb84.js"],"default"]
+20:I[9377,[],""]
+:HL["/opencode-guide/_next/static/css/c2c2a7251380f177.css","style"]
+8:T9d6,
+  ┌──────────────────────────────────────────────────────────────┐
+  │  为什么选 SQLite?                                             │
+  │                                                              │
+  │  需求                        SQLite        PostgreSQL        │
+  │  ─────────────────────────────────────────────────────────── │
+  │  零配置部署                   ✓ 嵌入式      ✕ 需要服务器     │
+  │  数据在用户本地               ✓ 单文件      ✕ 需要连接       │
+  │  启动速度                     ✓ 毫秒级      ✕ 秒级          │
+  │  并发读写                     ✓ WAL模式     ✓ MVCC          │
+  │  Bun 原生支持                 ✓ bun:sqlite  ✕ 需要驱动      │
+  │  适合单用户本地应用           ✓             ✕ 杀鸡用牛刀    │
+  └──────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────────────┐
+  │  为什么选 Drizzle ORM?                                        │
+  │                                                              │
+  │  需求                        Drizzle       Prisma           │
+  │  ─────────────────────────────────────────────────────────── │
+  │  类型安全                     ✓             ✓               │
+  │  轻量级 (无代码生成)          ✓ 7KB         ✕ 生成客户端    │
+  │  Bun + SQLite 支持            ✓ 原生        ✕ 需要适配      │
+  │  SQL-like 查询                ✓ 接近SQL     ✕ 自有 DSL      │
+  │  运行时零开销                 ✓             ✕ engine进程    │
+  └──────────────────────────────────────────────────────────────┘
+0:{"P":null,"b":"bye4CeShaPMDcn-ypi8Us","p":"/opencode-guide","c":["","guide","storage",""],"i":false,"f":[[["",{"children":["guide",{"children":["storage",{"children":["__PAGE__",{}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/opencode-guide/_next/static/css/c2c2a7251380f177.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1"}]}],["$","body",null,{"className":"bg-white text-zinc-900 h-screen overflow-hidden antialiased","children":["$","$L2",null,{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]]}]]}],{"children":["guide",["$","$1","c",{"children":[null,["$","$L5",null,{"Component":"$6","slots":{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]},"params":{},"promise":"$@7"}]]}],{"children":["storage",["$","$1","c",{"children":[null,["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":[["$","article",null,{"className":"prose prose-zinc prose-xl max-w-none","children":[["$","h1",null,{"children":"Storage 存储层"}],["$","p",null,{"className":"text-zinc-500","children":["源码位置：",["$","code",null,{"children":"packages/opencode/src/storage/db.ts"}]," (数据库连接)",["$","br",null,{}],"Schema：",["$","code",null,{"children":"packages/opencode/src/storage/schema.ts"}]," (表定义)",["$","br",null,{}],"迁移：",["$","code",null,{"children":"packages/opencode/migration/"}]]}],["$","h2",null,{"children":"概述"}],["$","p",null,{"children":["OpenCode 使用 ",["$","strong",null,{"children":"SQLite"}]," 作为嵌入式数据库，通过 ",["$","strong",null,{"children":"Drizzle ORM"}]," ","进行类型安全的查询。数据库文件存储在用户本地目录，实现了零配置的本地持久化。 最关键的设计是 ",["$","strong",null,{"children":"Database.effect()"}]," 模式——确保事件在数据库事务提交后才发布。"]}],["$","h2",null,{"children":"技术选型理由"}],["$","pre",null,{"children":["$","code",null,{"children":"$8"}]}],"$L9","$La","$Lb","$Lc","$Ld","$Le","$Lf","$L10","$L11","$L12","$L13","$L14","$L15","$L16","$L17","$L18","$L19","$L1a","$L1b","$L1c","$L1d"]}],null,"$L1e"]}],{},null,false]},null,false]},null,false]},null,false],"$L1f",false]],"m":"$undefined","G":["$20",[]],"s":false,"S":true}
+27:I[1474,[],"OutletBoundary"]
+29:I[9783,[],"AsyncMetadataOutlet"]
+2b:I[1474,[],"ViewportBoundary"]
+2d:I[1474,[],"MetadataBoundary"]
+2e:"$Sreact.suspense"
+9:["$","h2",null,{"children":"数据库初始化 + 性能优化"}]
+a:["$","pre",null,{"children":["$","code",null,{"children":"// packages/opencode/src/storage/db.ts\n\nimport { Database as BunDatabase } from \"bun:sqlite\"\nimport { drizzle } from \"drizzle-orm/bun-sqlite\"\n\n// 数据库路径\nconst dbPath = path.join(Global.Path.data, \"opencode.db\")\n// → ~/.local/share/opencode/opencode.db\n\n// 创建 SQLite 连接\nconst sqlite = new BunDatabase(dbPath)\n\n// ═══════ 性能优化 PRAGMA ═══════\n\nsqlite.run(\"PRAGMA journal_mode = WAL\")\n// ↑ Write-Ahead Logging: 读写不互相阻塞\n//   默认的 DELETE 模式: 写入时锁定整个数据库, 读取被阻塞\n//   WAL 模式: 写入到 WAL 文件, 读取看到 WAL 之前的快照\n//   → Agent 写入 Part 数据时, 前端可以同时查询消息列表\n\nsqlite.run(\"PRAGMA synchronous = NORMAL\")\n// ↑ 平衡性能与安全\n//   FULL: 每次写入都 fsync → 最安全但最慢\n//   NORMAL: 只在 checkpoint 时 fsync → 够安全且快\n//   OFF: 不 fsync → 最快但断电可能丢数据\n\nsqlite.run(\"PRAGMA busy_timeout = 5000\")\n// ↑ 并发写入时等待 5 秒 (不立即报错)\n\nsqlite.run(\"PRAGMA cache_size = -64000\")\n// ↑ 64MB 页面缓存 (负数 = KB 单位)\n\nsqlite.run(\"PRAGMA foreign_keys = ON\")\n// ↑ 启用外键约束 → 级联删除才会生效\n\nconst db = drizzle(sqlite)"}]}]
+b:["$","h2",null,{"children":"完整 ER 关系图"}]
+21:Tfc8,
+  ┌─────────────────┐         ┌────────────────────────────────┐
+  │    Project       │         │           Session              │
+  │─────────────────│    1:N  │────────────────────────────────│
+  │ id (PK)         │────────►│ id (PK)                        │
+  │ name            │         │ project_id (FK → Project)      │
+  │ worktree        │         │ parent_id  (FK → Session) ─┐   │  ← 自引用 (Fork 树)
+  │ vcs             │         │ slug                       │   │
+  │ sandboxes (JSON)│         │ directory                  │   │
+  │ commands (JSON) │         │ title                      │   │
+  └─────────────────┘         │ version                    │   │
+         │                    │ share_url                  │   │
+         │  1:1               │ summary_* (反规范化)       │   │
+         ▼                    │ revert (JSON)              │   │
+  ┌─────────────────┐         │ permission (JSON)          │   │
+  │   Permission    │         │ time_created               │   │
+  │─────────────────│         │ time_updated               │   │
+  │ project_id (PK) │         │ time_compacting            │   │
+  │ data (JSON)     │         │ time_archived              │   │
+  │   规则集        │         └──────┬─────────────┬───────┘   │
+  └─────────────────┘                │             │           │
+                                     │  1:N        │  1:1      │
+                              ┌──────▼──────┐  ┌───▼─────────┐│
+                              │   Message   │  │SessionShare ││
+                              │─────────────│  │─────────────││
+                              │ id (PK)     │  │session_id(PK)│
+                              │ session_id  │  │id            │
+                              │   (FK, CASCADE)│secret        │
+                              │ time_created│  │url           │
+                              │ data (JSON) │  └──────────────┘
+                              │  UserMessage│
+                              │  | Assistant│
+                              └──────┬──────┘
+                                     │  1:N
+                              ┌──────▼──────┐
+                              │    Part     │
+                              │─────────────│
+                              │ id (PK)     │
+                              │ message_id  │
+                              │   (FK, CASCADE)
+                              │ session_id  │  ← 冗余 (方便查询)
+                              │ time_created│
+                              │ data (JSON) │
+                              │  TextPart   │
+                              │  | ToolPart │
+                              │  | ...12种  │
+                              └─────────────┘
+
+  ═══════ 级联删除链 ═══════
+
+  DELETE Session ──CASCADE──► DELETE Message ──CASCADE──► DELETE Part
+       │
+       └──CASCADE──► DELETE SessionShare
+       └──CASCADE──► DELETE Todo
+
+  ★ 删除一个 Session 自动清理所有关联数据, 不会产生孤儿记录
+c:["$","pre",null,{"children":["$","code",null,{"children":"$21"}]}]
+d:["$","h2",null,{"children":"各表详细 Schema"}]
+e:["$","h3",null,{"children":"Session 表"}]
+22:T4f1,SessionTable = sqliteTable("session", {
+  id:                text("id").primaryKey(),
+  //                 ↑ 降序 ULID (新的在前)
+  project_id:        text("project_id").references(() => ProjectTable.id),
+  parent_id:         text("parent_id"),       // Fork 父会话 (自引用)
+  slug:              text("slug").notNull(),   // URL 友好 ID
+  directory:         text("directory").notNull(),
+  title:             text("title").notNull().default(""),
+  version:           text("version").notNull().default(""),
+  share_url:         text("share_url"),
+
+  // ★ 反规范化字段 — 避免查询时遍历所有消息计算
+  summary_additions: integer("summary_additions"),  // 新增行数
+  summary_deletions: integer("summary_deletions"),  // 删除行数
+  summary_files:     integer("summary_files"),      // 变更文件数
+  summary_diffs:     text("summary_diffs", { mode: "json" }),
+
+  revert:            text("revert", { mode: "json" }),
+  permission:        text("permission", { mode: "json" }),
+
+  time_created:      integer("time_created"),
+  time_updated:      integer("time_updated"),
+  time_compacting:   integer("time_compacting"),  // 非 null = 正在压缩
+  time_archived:     integer("time_archived"),     // 非 null = 已归档
+})f:["$","pre",null,{"children":["$","code",null,{"children":"$22"}]}]
+10:["$","h3",null,{"children":"Message + Part 表"}]
+23:T479,MessageTable = sqliteTable("message", {
+  id:           text("id").primaryKey(),
+  session_id:   text("session_id")
+                  .references(() => SessionTable.id, { onDelete: "cascade" }),
+  time_created: integer("time_created"),
+  data:         text("data", { mode: "json" }),
+  // ↑ 完整的 UserMessage | AssistantMessage JSON
+  //   包含: role, agent, model, cost, tokens, error, finish...
+})
+
+PartTable = sqliteTable("part", {
+  id:           text("id").primaryKey(),
+  message_id:   text("message_id")
+                  .references(() => MessageTable.id, { onDelete: "cascade" }),
+  session_id:   text("session_id"),     // ★ 冗余字段
+  //            ↑ 正规化设计不需要这个字段 (可以通过 message → session 查询)
+  //            但 OpenCode 大量按 sessionID 查询 Part, 冗余避免了 JOIN
+  time_created: integer("time_created"),
+  data:         text("data", { mode: "json" }),
+  // ↑ 12 种 Part 类型之一:
+  //   TextPart | ToolPart | ReasoningPart | FilePart | SubtaskPart
+  //   StepStartPart | StepFinishPart | SnapshotPart | PatchPart
+  //   AgentPart | RetryPart | CompactionPart
+})11:["$","pre",null,{"children":["$","code",null,{"children":"$23"}]}]
+12:["$","h2",null,{"children":"JSON 存储策略"}]
+24:Td87,
+  ═══════ 为什么用 JSON 列而不是结构化列? ═══════
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │  方案 A: 结构化列                                            │
+  │                                                             │
+  │  CREATE TABLE part (                                        │
+  │    id TEXT PRIMARY KEY,                                     │
+  │    type TEXT,           -- "text", "tool", "reasoning"...   │
+  │    text TEXT,           -- TextPart 用                      │
+  │    tool TEXT,           -- ToolPart 用                      │
+  │    tool_state TEXT,     -- ToolPart 用                      │
+  │    call_id TEXT,        -- ToolPart 用                      │
+  │    reasoning TEXT,      -- ReasoningPart 用                 │
+  │    ...                  -- 12 种类型的所有字段               │
+  │  )                                                          │
+  │                                                             │
+  │  问题:                                                      │
+  │    - 大量 NULL 列 (每行只用其中几个)                          │
+  │    - 新增 Part 类型需要 ALTER TABLE                          │
+  │    - 嵌套结构 (ToolState) 也要拍平                           │
+  └─────────────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │  方案 B: JSON 列 (OpenCode 的选择) ✓                        │
+  │                                                             │
+  │  CREATE TABLE part (                                        │
+  │    id TEXT PRIMARY KEY,                                     │
+  │    message_id TEXT,                                         │
+  │    data TEXT  -- JSON: 完整的 Part 对象                      │
+  │  )                                                          │
+  │                                                             │
+  │  优点:                                                      │
+  │    - 灵活: 12 种 Part 类型有不同字段, 都能存                  │
+  │    - 无迁移: 新增字段不需要 ALTER TABLE                      │
+  │    - 嵌套自然: ToolState 直接序列化                          │
+  │    - TypeScript 保证: Zod + 类型系统保证 JSON 结构正确       │
+  │    - 读写简单: JSON.stringify → INSERT, SELECT → JSON.parse │
+  │                                                             │
+  │  缺点:                                                      │
+  │    - 不能用 SQL 直接查询 JSON 内部字段                       │
+  │    - 但 OpenCode 不需要这么做! 查询都是按 ID/session_id      │
+  └─────────────────────────────────────────────────────────────┘
+13:["$","pre",null,{"children":["$","code",null,{"children":"$24"}]}]
+14:["$","h2",null,{"children":"WAL 模式工作原理"}]
+25:Ta1f,
+  ═══════ 默认模式 (DELETE/ROLLBACK) ═══════
+
+  写入时:
+    1. 复制原始页面到回滚日志
+    2. 修改数据库文件中的页面
+    3. 删除回滚日志 (完成提交)
+
+  问题: 写入期间锁定整个数据库 → 读取被阻塞
+
+  ─────────────────────────────────────────────────────
+
+  ═══════ WAL 模式 (OpenCode 使用) ═══════
+
+  ┌──────────────────────────────────────────────────┐
+  │                                                  │
+  │   数据库文件 (opencode.db)                        │
+  │   ┌──────────────────────────────┐               │
+  │   │ Page 1 │ Page 2 │ Page 3 │..│               │
+  │   └──────────────────────────────┘               │
+  │          ↑ 读取者看到这里的数据                    │
+  │                                                  │
+  │   WAL 文件 (opencode.db-wal)                      │
+  │   ┌──────────────────────────────┐               │
+  │   │ Frame 1: Page 2 (新版)       │               │
+  │   │ Frame 2: Page 5 (新版)       │  ← 写入追加   │
+  │   │ Frame 3: Page 2 (更新版)     │               │
+  │   └──────────────────────────────┘               │
+  │          ↑ 写入者追加到这里                        │
+  │                                                  │
+  │   结果:                                           │
+  │     读取者: 看到 db 文件 → 不受写入影响           │
+  │     写入者: 只追加到 WAL → 不修改 db 文件         │
+  │     → 读写并行! ★                                │
+  │                                                  │
+  │   Checkpoint (自动):                              │
+  │     WAL 文件的数据写回 db 文件 → WAL 清空         │
+  │     通常在 WAL 超过 1000 页时自动触发             │
+  └──────────────────────────────────────────────────┘
+15:["$","pre",null,{"children":["$","code",null,{"children":"$25"}]}]
+16:["$","h2",null,{"children":"事务 + Database.effect() 模式"}]
+26:T6e0,
+  ═══════ 为什么需要 effect()? ═══════
+
+  场景: 创建 Session 后要广播事件, 前端收到后查询详情
+
+  ❌ 错误做法:
+  db.transaction(() => {
+    db.insert(session)
+    Bus.publish("session.created")  // ← 事件在事务内发布
+    db.insert(message)              // ← 如果这里失败, 事务回滚
+  })                                //    但事件已经发出! 前端看到了虚假事件
+
+  ✅ 正确做法 (Database.effect):
+  db.transaction(() => {
+    db.insert(session)
+    Database.effect(() => {
+      Bus.publish("session.created")  // ← 推迟到事务提交后
+    })
+    db.insert(message)
+    Database.effect(() => {
+      Bus.publish("message.updated")  // ← 推迟到事务提交后
+    })
+  })
+  // 事务提交成功 → 两个 effect 顺序执行
+  // 事务回滚     → 两个 effect 丢弃, 不执行
+
+  ═══════ 完整时序图 ═══════
+
+  Database.transaction(fn)
+       │
+       ├── 1. BEGIN TRANSACTION
+       │
+       ├── 2. fn(tx) 执行:
+       │       ├── tx.insert(session)        ← 数据写入
+       │       ├── Database.effect(publish1)  ← 加入队列
+       │       ├── tx.insert(message)        ← 数据写入
+       │       └── Database.effect(publish2)  ← 加入队列
+       │
+       ├── 3. COMMIT  ← 所有数据原子写入
+       │
+       └── 4. flush effects:
+               ├── publish1()  ← Bus.publish("session.created")
+               └── publish2()  ← Bus.publish("message.updated")
+                                  ↓
+                             SSE → 前端
+                             此时数据已确保存在 ✓
+17:["$","pre",null,{"children":["$","code",null,{"children":"$26"}]}]
+18:["$","h2",null,{"children":"查询模式"}]
+19:["$","pre",null,{"children":["$","code",null,{"children":"// ═══════ 按 Session 查询所有消息 + Parts ═══════\n\nconst messages = db.select()\n  .from(MessageTable)\n  .where(eq(MessageTable.session_id, sessionID))\n  .orderBy(asc(MessageTable.time_created))\n\nconst parts = db.select()\n  .from(PartTable)\n  .where(eq(PartTable.session_id, sessionID))\n  // ★ 用冗余的 session_id 直接查, 不需要 JOIN message 表\n  .orderBy(asc(PartTable.time_created))\n\n// 组装成 WithParts 结构:\n// [\n//   { info: UserMessage, parts: [TextPart, FilePart] },\n//   { info: AssistantMessage, parts: [TextPart, ToolPart, ToolPart, TextPart] },\n// ]\n\n// ═══════ 按时间查询最近 Session ═══════\n// 降序 ID = 时间倒序 → 天然排序\nconst recent = db.select()\n  .from(SessionTable)\n  .where(and(\n    eq(SessionTable.project_id, projectID),\n    isNull(SessionTable.time_archived),  // 排除已归档\n  ))\n  .orderBy(asc(SessionTable.id))  // ID 升序 = 时间降序 (降序 ULID)\n  .limit(20)"}]}]
+1a:["$","h2",null,{"children":"从 JSON 文件迁移"}]
+1b:["$","pre",null,{"children":["$","code",null,{"children":"\n  ═══════ 历史数据迁移 ═══════\n\n  OpenCode 早期使用 JSON 文件存储:\n\n  ~/.local/share/opencode/storage/\n  ├── session/\n  │   ├── ses_001.json\n  │   └── ses_002.json\n  ├── message/\n  │   ├── msg_001.json\n  │   └── msg_002.json\n  └── part/\n      ├── part_001.json\n      └── part_002.json\n\n  启动时检测:\n  ┌────────────────────────────────────────────────┐\n  │  if (fs.existsSync(legacyStoragePath)) {       │\n  │    // 逐文件读取 → 写入 SQLite                 │\n  │    for (file of glob(\"session/*.json\")) {      │\n  │      const data = JSON.parse(read(file))       │\n  │      db.insert(SessionTable).values(convert()) │\n  │    }                                           │\n  │    // ... message, part 同理                    │\n  │    // 迁移完成后标记 (不删除原文件, 以防万一)   │\n  │  }                                             │\n  └────────────────────────────────────────────────┘\n"}]}]
+1c:["$","h2",null,{"children":"设计要点"}]
+1d:["$","ul",null,{"children":[["$","li",null,{"children":[["$","strong",null,{"children":"嵌入式 SQLite + WAL"}]," — 零配置部署，WAL 模式让读写互不阻塞。 Agent 高频写入 Part 数据时，前端查询不受影响。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Database.effect() 保证事件一致性"}]," — 这是整个数据层最关键的设计。 事件一定在数据库事务提交后才发布，消除了前端\"收到事件但查不到数据\"的竞态条件。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"JSON 列 + TypeScript 类型"}]," — 12 种 Part 类型有不同的字段结构， 用 JSON 统一存储最灵活。新增 Part 类型无需 SQL 迁移。正确性由 TypeScript + Zod 在应用层保证。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"冗余字段换查询性能"}]," — Part 表的 session_id 是冗余的（可以通过 message 表关联）， 但避免了高频查询中的 JOIN。Session 表的 summary_* 字段同理——反规范化换取 O(1) 查询。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"级联删除防孤儿数据"}]," — SQLite 的 ON DELETE CASCADE 确保删除 Session 时 自动清理 Message → Part → Todo → Share，不会遗留任何垃圾数据。"]}]]}]
+1e:["$","$L27",null,{"children":["$L28",["$","$L29",null,{"promise":"$@2a"}]]}]
+1f:["$","$1","h",{"children":[null,[["$","$L2b",null,{"children":"$L2c"}],null],["$","$L2d",null,{"children":["$","div",null,{"hidden":true,"children":["$","$2e",null,{"fallback":null,"children":"$L2f"}]}]}]]}]
+7:"$0:f:0:1:2:children:1:props:children:1:props:params"
+2c:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+28:null
+2a:{"metadata":[["$","title","0",{"children":"OpenCode"}],["$","meta","1",{"name":"description","content":"AI Agent Chat Interface"}]],"error":null,"digest":"$undefined"}
+2f:"$2a:metadata"

@@ -1,0 +1,831 @@
+1:"$Sreact.fragment"
+2:I[1518,["1","static/chunks/1-7468df48e3930e95.js","177","static/chunks/app/layout-df5ddfbcf51af9a3.js"],"SSEProvider"]
+3:I[8139,[],""]
+4:I[9479,[],""]
+5:I[2818,[],"ClientSegmentRoot"]
+6:I[5289,["210","static/chunks/app/guide/layout-103dca6b3bf7cb84.js"],"default"]
+41:I[9377,[],""]
+:HL["/opencode-guide/_next/static/css/c2c2a7251380f177.css","style"]
+8:T908,┌─────────────────────────────────────────────────────┐
+│  Prompt 编排层 (prompt.ts, 1959 行)                  │
+│  职责:                                               │
+│    ① 消息创建 (UserMessage + AssistantMessage)        │
+│    ② 工具组装 (内置 + MCP + 插件, 权限包装)           │
+│    ③ 历史转换 (toModelMessages, 12种Part→LLM格式)    │
+│    ④ 循环控制 (compact/continue/stop 决策)            │
+│    ⑤ 结构化输出 (json_schema → StructuredOutput工具) │
+│    ⑥ Reminder 注入 (计划模式、子任务后续)             │
+├─────────────────────────────────────────────────────┤
+│  Processor 流处理层 (processor.ts, 421 行)           │
+│  职责:                                               │
+│    ① 逐事件处理 LLM 输出流                           │
+│    ② 创建/更新 TextPart, ToolPart, ReasoningPart     │
+│    ③ 执行工具并收集结果                               │
+│    ④ Doom Loop 检测 (3次相同调用)                     │
+│    ⑤ 步骤边界追踪 (StepStart/StepFinish)             │
+│    ⑥ Git Snapshot + Patch 生成                       │
+├─────────────────────────────────────────────────────┤
+│  LLM 调用层 (llm.ts, 280 行)                        │
+│  职责:                                               │
+│    ① System Prompt 组装 (2段式缓存优化)               │
+│    ② Provider Options 合并 (model+agent+variant)     │
+│    ③ 工具名修复 (大小写自动纠正)                      │
+│    ④ LiteLLM Proxy 兼容 (dummy _noop tool)           │
+│    ⑤ 消息中间件 (provider-specific 变换)              │
+│    ⑥ 自定义 Headers (OpenCode/User-Agent)            │
+└─────────────────────────────────────────────────────┘0:{"P":null,"b":"bye4CeShaPMDcn-ypi8Us","p":"/opencode-guide","c":["","guide","agent-loop",""],"i":false,"f":[[["",{"children":["guide",{"children":["agent-loop",{"children":["__PAGE__",{}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/opencode-guide/_next/static/css/c2c2a7251380f177.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1"}]}],["$","body",null,{"className":"bg-white text-zinc-900 h-screen overflow-hidden antialiased","children":["$","$L2",null,{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]]}]]}],{"children":["guide",["$","$1","c",{"children":[null,["$","$L5",null,{"Component":"$6","slots":{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]},"params":{},"promise":"$@7"}]]}],{"children":["agent-loop",["$","$1","c",{"children":[null,["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":[["$","article",null,{"className":"prose prose-zinc prose-xl max-w-none","children":[["$","h1",null,{"children":"Agent 执行循环"}],["$","p",null,{"className":"text-zinc-500","children":["源码位置：",["$","code",null,{"children":"packages/opencode/src/session/processor.ts"}]," (421 行)",["$","br",null,{}],"编排层：",["$","code",null,{"children":"packages/opencode/src/session/prompt.ts"}]," (1959 行)",["$","br",null,{}],"LLM 调用：",["$","code",null,{"children":"packages/opencode/src/session/llm.ts"}]," (280 行)",["$","br",null,{}],"上下文压缩：",["$","code",null,{"children":"packages/opencode/src/session/compaction.ts"}],["$","br",null,{}],"System Prompt：",["$","code",null,{"children":"packages/opencode/src/session/system.ts"}]]}],["$","h2",null,{"children":"概述"}],["$","p",null,{"children":["Agent 执行循环是 OpenCode 最复杂的模块——它不是一个简单的 while 循环， 而是一个包含",["$","strong",null,{"children":"上下文管理、流式处理、工具编排、错误恢复、自动压缩"}],"的完整引擎。 理解这个模块，就理解了\"如何让 AI 自主完成复杂任务\"的核心工程问题。"]}],["$","h2",null,{"children":"三层架构 — 不只是分层"}],["$","pre",null,{"children":["$","code",null,{"children":"$8"}]}],"$L9","$La","$Lb","$Lc","$Ld","$Le","$Lf","$L10","$L11","$L12","$L13","$L14","$L15","$L16","$L17","$L18","$L19","$L1a","$L1b","$L1c","$L1d","$L1e","$L1f","$L20","$L21","$L22","$L23","$L24","$L25","$L26","$L27","$L28","$L29","$L2a","$L2b","$L2c","$L2d","$L2e","$L2f","$L30","$L31","$L32","$L33","$L34","$L35","$L36","$L37","$L38","$L39","$L3a","$L3b","$L3c","$L3d","$L3e"]}],null,"$L3f"]}],{},null,false]},null,false]},null,false]},null,false],"$L40",false]],"m":"$undefined","G":["$41",[]],"s":false,"S":true}
+4b:I[1474,[],"OutletBoundary"]
+4d:I[9783,[],"AsyncMetadataOutlet"]
+4f:I[1474,[],"ViewportBoundary"]
+51:I[1474,[],"MetadataBoundary"]
+52:"$Sreact.suspense"
+9:["$","p",null,{"children":["这三层",["$","strong",null,{"children":"不是简单的调用关系"}],"。Prompt 层是\"指挥官\"——它决定工具集、 组装上下文、控制循环。Processor 是\"战场执行者\"——它实时处理流事件、执行工具、 追踪状态。LLM 层是\"通信员\"——它处理与各种 LLM 提供商的协议差异。"]}]
+a:["$","h2",null,{"children":"主循环完整逻辑 — prompt.ts loop()"}]
+b:["$","p",null,{"children":["这不是一个简单的 ",["$","code",null,{"children":["while(true) ","{"," callLLM(); ","}"]}],"。 每次迭代都要处理多种状态："]}]
+42:Te71,// prompt.ts — loop() 函数的完整逻辑
+
+async function loop(sessionID: string) {
+  while (true) {
+    // ═══════ 第 1 步: 加载消息 ═══════
+    // filterCompacted() 只返回最后一次压缩之后的消息
+    // 如果消息 10 条中第 5 条有 CompactionPart,
+    // 只返回 5-10 (跳过被压缩的历史)
+    const messages = await MessageV2.filterCompacted(
+      MessageV2.stream(sessionID)
+    )
+
+    // ═══════ 第 2 步: 分析当前状态 ═══════
+    const lastUser = messages.findLast(m => m.info.role === "user")
+    const lastAssistant = messages.findLast(m => m.info.role === "assistant")
+    const lastFinished = messages.findLast(m =>
+      m.info.role === "assistant" && m.info.finish
+    )
+
+    // ═══════ 第 3 步: 退出条件判断 ═══════
+    // 如果最新的已完成 AI 消息比最新用户消息更新 → 说明已处理完
+    if (lastFinished && lastFinished.info.id < lastUser.info.id) break
+
+    // ═══════ 第 4 步: 处理待执行子任务 ═══════
+    // SubtaskPart 表示 Task 工具创建了子 Agent
+    // 需要等子 Agent 完成后继续
+    const pendingSubtask = findPendingSubtask(messages)
+    if (pendingSubtask) {
+      await executeSubtask(pendingSubtask)
+      continue  // 重新检查消息状态
+    }
+
+    // ═══════ 第 5 步: 处理待执行压缩 ═══════
+    const pendingCompaction = findPendingCompaction(messages)
+    if (pendingCompaction) {
+      await SessionCompaction.process({
+        messages, sessionID,
+        auto: pendingCompaction.auto,
+      })
+      continue
+    }
+
+    // ═══════ 第 6 步: 检查是否需要压缩 ═══════
+    // 如果上一轮 token 用量已接近 context window
+    if (lastFinished && !lastFinished.summary) {
+      if (SessionCompaction.isOverflow({
+        tokens: lastFinished.tokens,
+        model: currentModel,
+      })) {
+        await SessionCompaction.create({
+          sessionID, auto: true,
+          agent: currentAgent.name,
+          model: currentModel,
+        })
+        continue
+      }
+    }
+
+    // ═══════ 第 7 步: 正常处理 — 核心路径 ═══════
+    // 7a. 组装工具 (权限包装 + 插件 Hook)
+    const tools = await resolveTools({
+      agent, model, session,
+      processor, messages,
+    })
+
+    // 7b. 创建 AssistantMessage
+    const assistant = await MessageV2.create({
+      role: "assistant",
+      sessionID,
+      parentID: lastUser.info.id,
+      modelID, providerID, agent: agent.name,
+    })
+
+    // 7c. 注入 Reminder (计划模式、构建模式等)
+    const systemReminders = await insertReminders(messages)
+
+    // 7d. 构建 System Prompt
+    const system = await buildSystemPrompt(agent, model)
+
+    // 7e. 转换消息格式 (内部 Part → LLM CoreMessage)
+    const modelMessages = MessageV2.toModelMessages(messages, model)
+
+    // 7f. 创建 Processor 并执行
+    const processor = SessionProcessor.create({
+      assistantMessage: assistant,
+      sessionID, model, abort,
+    })
+
+    const result = await processor.process({
+      model, system, tools,
+      messages: modelMessages,
+      toolChoice: "auto",
+    })
+
+    // ═══════ 第 8 步: 处理结果 ═══════
+    switch (result) {
+      case "continue":
+        continue  // LLM 还有工具调用 → 继续循环
+      case "compact":
+        // 上下文溢出 → 创建压缩任务后继续
+        await SessionCompaction.create({ ... })
+        continue
+      case "stop":
+        return assistant  // 完成
+    }
+  }
+}c:["$","pre",null,{"children":["$","code",null,{"children":"$42"}]}]
+d:["$","h2",null,{"children":"Processor 流处理 — 真正的复杂度所在"}]
+e:["$","p",null,{"children":["Processor 是整个系统最精密的部分。它不是简单地\"读取流、写入数据库\"—— 它要处理",["$","strong",null,{"children":"12种流事件类型"}],"、管理",["$","strong",null,{"children":"工具状态机"}],"、 检测",["$","strong",null,{"children":"死循环"}],"、追踪",["$","strong",null,{"children":"Git 变更"}],"。"]}]
+43:T15d1,// processor.ts — process() 方法的完整事件处理
+
+class SessionProcessor {
+  private blocked = false           // 权限被拒绝
+  private needsCompaction = false   // 需要压缩
+  private lastToolParts: ToolPart[] = []  // 用于 Doom Loop 检测
+
+  async process(streamInput): Promise<"compact" | "stop" | "continue"> {
+
+    // 启动 LLM 流
+    const stream = LLM.stream(streamInput)
+
+    for await (const event of stream.fullStream) {
+      switch (event.type) {
+
+        // ═══════ 文本流处理 ═══════
+        case "text-start":
+          textPart = await createPart("text", { text: "" })
+          break
+
+        case "text-delta":
+          textPart.text += event.textDelta
+          // ★ Delta 事件: 只发送新增的字符
+          Bus.publish("message.part.delta", {
+            messageID, partID: textPart.id,
+            field: "text",
+            delta: event.textDelta  // e.g. "Hello"
+          })
+          break
+
+        case "text-end":
+          await savePart(textPart)  // 持久化最终文本
+          break
+
+        // ═══════ 推理过程 (Extended Thinking) ═══════
+        case "reasoning-start":
+          // 推理有 provider-specific ID, 存在 Map 中
+          reasoningMap.set(event.id, await createPart("reasoning"))
+          break
+
+        case "reasoning-delta":
+          const rPart = reasoningMap.get(event.id)
+          rPart.text += event.textDelta
+          Bus.publish("message.part.delta", {
+            field: "text", delta: event.textDelta
+          })
+          break
+
+        case "reasoning-end":
+          const done = reasoningMap.get(event.id)
+          done.text = done.text.trim()  // 清理尾部空白
+          reasoningMap.delete(event.id)
+          break
+
+        // ═══════ 工具调用状态机 ═══════
+        case "tool-input-start":
+          // LLM 开始生成工具参数 (流式)
+          toolPart = await createToolPart({
+            tool: event.toolName,
+            state: { status: "pending", input: {} },
+          })
+          break
+
+        case "tool-input-delta":
+          // LLM 逐 token 输出工具参数 (目前 no-op)
+          break
+
+        case "tool-call":
+          // ★ 参数完成, 开始执行
+          toolPart.state = { status: "running", input: event.args }
+          Bus.publish("message.part.updated", { part: toolPart })
+
+          // ★★★ Doom Loop 检测 ★★★
+          this.lastToolParts.push(toolPart)
+          if (this.lastToolParts.length >= 3) {
+            const last3 = this.lastToolParts.slice(-3)
+            const allSame = last3.every(p =>
+              p.tool === last3[0].tool &&
+              JSON.stringify(p.state.input) ===
+              JSON.stringify(last3[0].state.input)
+            )
+            if (allSame) {
+              // 连续 3 次相同调用！让用户决定
+              await permission.ask({ permission: "doom_loop" })
+            }
+          }
+          break
+
+        case "tool-result":
+          // 工具执行完成
+          toolPart.state = {
+            status: "completed",
+            input: event.args,
+            output: event.result.output,
+            title: event.result.title,
+            metadata: event.result.metadata,
+            attachments: event.result.attachments,
+          }
+          Bus.publish("message.part.updated", { part: toolPart })
+          break
+
+        case "tool-error":
+          // 权限拒绝 → 标记 blocked, 稍后终止循环
+          if (event.error instanceof PermissionRejected) {
+            this.blocked = true
+          }
+          toolPart.state = { status: "error", error: event.error.message }
+          break
+
+        // ═══════ 步骤边界 ═══════
+        case "start-step":
+          await createPart("step-start")
+          // ★ 在每步开始时拍 Git 快照
+          snapshot = await Snapshot.track()
+          break
+
+        case "finish-step":
+          // 记录 token 用量和成本
+          await createPart("step-finish", {
+            tokens: event.usage,
+            cost: calculateCost(event.usage, model),
+            finish: event.finishReason,
+          })
+
+          // ★ 检查文件变更, 生成 Patch
+          const patch = await Snapshot.patch(snapshot)
+          if (patch) await createPart("patch", patch)
+
+          // ★★ 溢出检测在 finish-step 之后 ★★
+          if (SessionCompaction.isOverflow({
+            tokens: event.usage, model,
+          })) {
+            this.needsCompaction = true
+          }
+          break
+
+        // ═══════ 错误处理 ═══════
+        case "error":
+          const parsed = MessageV2.fromError(event.error, { providerID })
+          // 分类:
+          // - AbortedError → 用户中止
+          // - AuthError → API Key 无效
+          // - ContextOverflowError → 上下文溢出
+          // - APIError(isRetryable) → 可重试
+          // - APIError(statusCode=529) → 服务过载
+          if (parsed.isRetryable) {
+            await createPart("retry")
+            return "continue"  // 重试
+          }
+          break
+      }
+
+      // 溢出时提前终止流处理
+      if (this.needsCompaction) break
+    }
+
+    // ═══════ 返回决策 ═══════
+    if (this.needsCompaction) return "compact"
+    if (this.blocked || this.error) return "stop"
+    if (hasToolCalls) return "continue"  // 有工具调用 → 继续
+    return "stop"  // 纯文本 → 结束
+  }
+}f:["$","pre",null,{"children":["$","code",null,{"children":"$43"}]}]
+10:["$","h2",null,{"children":"消息转换 — toModelMessages 的复杂度"}]
+11:["$","p",null,{"children":["你可能以为\"把消息转成 LLM 格式\"很简单。实际上，",["$","code",null,{"children":"toModelMessages"}],"是一个 200+ 行的函数，要处理",["$","strong",null,{"children":"12 种 Part 类型"}],"、",["$","strong",null,{"children":"Provider 差异"}],"、",["$","strong",null,{"children":"媒体附件兼容性"}],"、",["$","strong",null,{"children":"已压缩内容替换"}],"等问题。"]}]
+44:Te4c,// message-v2.ts — toModelMessages() 核心逻辑
+
+function toModelMessages(
+  input: WithParts[],
+  model: Provider.Model
+): ModelMessage[] {
+
+  // ★ 问题 1: 不同 Provider 对工具结果中的媒体支持不同
+  const supportsMediaInToolResults = (() => {
+    if (model.api.npm === "@ai-sdk/anthropic") return true
+    if (model.api.npm === "@ai-sdk/openai") return true
+    if (model.api.npm === "@ai-sdk/amazon-bedrock") return true
+    if (model.api.npm === "@ai-sdk/google-vertex/anthropic") return true
+    // Google Gemini: 只有 3.x 版本支持
+    if (model.api.npm === "@ai-sdk/google") {
+      return model.api.id.includes("gemini-3")
+    }
+    return false
+  })()
+
+  for (const msg of input) {
+    if (msg.info.role === "user") {
+      // 用户消息转换
+      for (const part of msg.parts) {
+        if (part.type === "text" && !part.ignored)
+          → { type: "text", text: part.text }
+
+        if (part.type === "file" && part.mime !== "text/plain")
+          → { type: "file", url, mediaType, filename }
+
+        // ★ CompactionPart 转换为普通文本
+        if (part.type === "compaction")
+          → { type: "text", text: "What did we do so far?" }
+
+        // ★ SubtaskPart 转换为文本标记
+        if (part.type === "subtask")
+          → { type: "text", text: "The following tool was executed by the user" }
+      }
+    }
+
+    if (msg.info.role === "assistant") {
+      // ★ 跳过有错误且没有实质内容的消息
+      if (msg.info.error && !hasSubstantiveParts(msg)) continue
+
+      // ★ 检测是否跨模型 (当前模型 vs 生成消息的模型)
+      const differentModel = currentModel !== msg.info.modelID
+
+      const media = []  // 待注入的媒体文件
+
+      for (const part of msg.parts) {
+        if (part.type === "tool" && part.state.status === "completed") {
+          // ★ 已压缩的工具结果 → 替换为占位文本
+          const output = part.state.time.compacted
+            ? "[Old tool result content cleared]"
+            : part.state.output
+
+          // ★ Provider 不支持媒体 → 提取到单独的 user message
+          if (!supportsMediaInToolResults) {
+            const imageAttachments = part.state.attachments
+              .filter(a => a.mime.startsWith("image/"))
+            media.push(...imageAttachments)
+          }
+
+          → {
+            type: "tool-{toolName}",
+            state: "output-available",
+            toolCallId: part.callID,
+            input: part.state.input,
+            output,
+            // ★ 同模型时传递 providerMetadata (用于缓存)
+            ...(differentModel ? {} : { callProviderMetadata: part.metadata })
+          }
+        }
+
+        // ★ 处理中断的工具调用
+        if (part.state.status === "pending" || part.state.status === "running") {
+          → {
+            type: "tool-{toolName}",
+            state: "output-error",
+            toolCallId: part.callID,
+            errorText: "[Tool execution was interrupted]"
+            // ★ Anthropic 要求每个 tool_use 必须有对应的 tool_result
+            // 所以中断的调用也要生成 error result
+          }
+        }
+      }
+
+      // ★ 为不支持媒体的 Provider 注入单独的 user message
+      if (media.length > 0) {
+        result.push({
+          role: "user",
+          parts: [
+            { type: "text", text: "Attached image(s) from tool result:" },
+            ...media.map(a => ({ type: "file", url: a.url, mediaType: a.mime }))
+          ]
+        })
+      }
+    }
+  }
+
+  // 最终转换: UIMessage → AI SDK CoreMessage
+  return convertToModelMessages(result, { tools })
+}12:["$","pre",null,{"children":["$","code",null,{"children":"$44"}]}]
+13:["$","h2",null,{"children":"System Prompt — 不只是一段文本"}]
+45:T899,// system.ts + llm.ts — System Prompt 构建
+
+// ★ 第 1 层: 根据模型选择不同的基础 Prompt
+function SystemPrompt.provider(model) {
+  if (model.api.id.includes("gpt-5"))  return [PROMPT_CODEX]     // GPT-5 专用
+  if (model.api.id.includes("gpt-"))   return [PROMPT_BEAST]     // GPT-4 专用
+  if (model.api.id.includes("gemini")) return [PROMPT_GEMINI]    // Gemini 专用
+  if (model.api.id.includes("claude")) return [PROMPT_ANTHROPIC] // Claude 专用
+  return [PROMPT_ANTHROPIC_WITHOUT_TODO]                         // 默认 (无 TODO)
+}
+
+// ★ 第 2 层: 环境信息注入
+function SystemPrompt.environment(model) {
+  return [`
+You are powered by the model named ${model.api.id}.
+<env>
+  Working directory: ${Instance.directory}
+  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}
+  Platform: ${process.platform}
+  Today's date: ${new Date().toDateString()}
+</env>
+  `]
+}
+
+// ★ 第 3 层: llm.ts 组装最终 System Prompt
+function LLM.stream(input) {
+  // 优先级: Agent.prompt > SystemPrompt.provider
+  const header = input.agent.prompt
+    ? [input.agent.prompt]
+    : SystemPrompt.provider(model)
+
+  // 组装: header + 自定义 system + 用户 system
+  let system = [
+    ...header,
+    ...input.system,           // 来自 prompt.ts 的额外指令
+    ...(input.user.system       // 用户临时覆盖的 system prompt
+      ? [input.user.system]
+      : []),
+  ]
+
+  // ★ Plugin Hook: 插件可以修改 system 数组
+  const original = system[0]
+  system = await Plugin.trigger(
+    "experimental.chat.system.transform",
+    { system }
+  )
+
+  // ★★ Anthropic 缓存优化: 保持 2 段式结构 ★★
+  // Anthropic 的 prompt caching 机制:
+  //   第 1 段标记为 ephemeral → API 缓存这段 (不变的部分)
+  //   第 2 段不缓存 → 动态内容 (环境、上下文)
+  //
+  // 如果 Plugin 没有修改第 1 段 (header), 重新组合为 2 段:
+  if (system[0] === original) {
+    system = [original, system.slice(1).join("\n")]
+  }
+  // → 传给 streamText 的 system 参数:
+  // [
+  //   { text: "You are...", cacheControl: { type: "ephemeral" } },
+  //   { text: "Environment: ...\nCustom instructions: ..." }
+  // ]
+}14:["$","pre",null,{"children":["$","code",null,{"children":"$45"}]}]
+15:["$","h2",null,{"children":"Provider 消息规范化 — 你以为 API 都一样？"}]
+16:["$","p",null,{"children":["不同 LLM Provider 对消息格式有不同的要求。",["$","code",null,{"children":"ProviderTransform.message()"}]," 在调用 LLM 前对消息做规范化："]}]
+46:T5a6,// transform.ts — Provider-Specific 消息规范化
+
+// ★ Anthropic: 拒绝空消息
+// Anthropic API 要求每条消息的 content 不能为空
+// 如果 TextPart.text === "" 或 ReasoningPart.text === "", 过滤掉
+msgs = msgs.map(msg => {
+  if (typeof msg.content === "string" && msg.content === "") return undefined
+  if (Array.isArray(msg.content)) {
+    const filtered = msg.content.filter(part => {
+      if (part.type === "text" || part.type === "reasoning")
+        return part.text !== ""
+      return true
+    })
+    if (filtered.length === 0) return undefined
+  }
+  return msg
+}).filter(Boolean)
+
+// ★ Claude: Tool ID 清洗
+// Claude 只接受 [a-zA-Z0-9_-] 的 Tool Call ID
+// 其他字符替换为 _
+if (model.api.id.includes("claude")) {
+  part.toolCallId = part.toolCallId.replace(/[^a-zA-Z0-9_-]/g, "_")
+}
+
+// ★ Mistral: 9 字符 Tool ID 限制
+// Mistral API 要求 Tool Call ID 恰好 9 个字母数字字符
+if (model.providerID === "mistral") {
+  part.toolCallId = part.toolCallId
+    .replace(/[^a-zA-Z0-9]/g, "")  // 只保留字母数字
+    .substring(0, 9)                 // 取前 9 位
+    .padEnd(9, "0")                  // 不足 9 位补 0
+
+  // ★ Mistral 还要求: tool message 后面不能直接跟 user message
+  // 需要插入一条 assistant message
+  if (msg.role === "tool" && nextMsg?.role === "user") {
+    result.push({ role: "assistant", content: [{ type: "text", text: "Done." }] })
+  }
+}17:["$","pre",null,{"children":["$","code",null,{"children":"$46"}]}]
+18:["$","h2",null,{"children":"缓存控制 — 省钱的关键"}]
+19:["$","pre",null,{"children":["$","code",null,{"children":"// transform.ts — applyCaching()\n// 对 system 消息 + 最后 2 条消息添加缓存提示\n\n// 不同 Provider 的缓存提示格式不同:\nconst providerOptions = {\n  anthropic:         { cacheControl: { type: \"ephemeral\" } },\n  openrouter:        { cacheControl: { type: \"ephemeral\" } },\n  bedrock:           { cachePoint: { type: \"default\" } },\n  openaiCompatible:  { cache_control: { type: \"ephemeral\" } },\n  copilot:           { copilot_cache_control: { type: \"ephemeral\" } },\n}\n\n// ★ 缓存策略:\n// 只对 system prompt (前 2 段) + 对话最后 2 条消息 添加缓存标记\n// 为什么？\n// - System prompt 每次调用都相同 → 缓存命中率最高\n// - 最后 2 条消息是最新的 → 下一轮调用时大概率还在\n// - 中间的消息不标记 → 避免缓存污染\n\nconst system = msgs.filter(m => m.role === \"system\").slice(0, 2)\nconst final = msgs.filter(m => m.role !== \"system\").slice(-2)\n\nfor (const msg of [...system, ...final]) {\n  // Anthropic/Bedrock: 在 message 级别添加\n  // 其他: 在 content 数组最后一个元素添加\n  msg.providerOptions = mergeDeep(msg.providerOptions ?? {}, providerOptions)\n}"}]}]
+1a:["$","h2",null,{"children":"上下文压缩 — Compaction 详解"}]
+1b:["$","p",null,{"children":["当 token 使用量接近模型的 context window 时，OpenCode 不是简单地截断历史—— 它使用一个",["$","strong",null,{"children":"专门的\"压缩 Agent\""}],"来生成对话摘要， 并有一套精细的",["$","strong",null,{"children":"工具结果裁剪"}],"策略。"]}]
+47:Td29,// compaction.ts — 关键常量
+const COMPACTION_BUFFER = 20_000    // 预留 token 空间
+const PRUNE_MINIMUM = 20_000        // 最少裁剪 20K token 才值得
+const PRUNE_PROTECT = 40_000        // 累积到 40K 才开始裁剪
+const PRUNE_PROTECTED_TOOLS = ["skill"]  // 永不裁剪的工具
+
+// ═══════ 溢出检测算法 ═══════
+function isOverflow(tokens, model) {
+  // 总 token = input + output + cache.read + cache.write
+  const count = tokens.total || sum(tokens)
+
+  // 预留空间 (可配置, 默认 = min(20K, maxOutputTokens))
+  const reserved = config.compaction?.reserved
+    ?? Math.min(COMPACTION_BUFFER, model.limit.output)
+
+  // 可用空间 = context_window - maxOutputTokens - reserved
+  const usable = model.limit.input
+    ? model.limit.input - reserved
+    : model.limit.context - model.limit.output - reserved
+
+  return count >= usable  // true = 需要压缩
+}
+
+// ═══════ 工具结果裁剪 (不删除, 标记为已压缩) ═══════
+async function prune(sessionID) {
+  // 从后往前遍历消息
+  // ★ 跳过最近 2 轮用户消息 (保持近期上下文新鲜)
+  let userTurns = 0
+  let accumulated = 0
+
+  for (const msg of messages.reverse()) {
+    if (msg.info.role === "user") userTurns++
+    if (userTurns <= 2) continue  // 跳过最近 2 轮
+
+    // 如果遇到已有 summary 的 assistant → 已经压缩过, 停止
+    if (msg.info.role === "assistant" && msg.info.summary) break
+
+    for (const part of msg.parts) {
+      if (part.type !== "tool") continue
+      if (part.state.status !== "completed") continue
+      if (PRUNE_PROTECTED_TOOLS.includes(part.tool)) continue
+      if (part.state.time.compacted) continue  // 已裁剪过
+
+      // 累积要裁剪的 token 量
+      accumulated += estimateTokens(part.state.output)
+
+      // 累积到 PRUNE_PROTECT (40K) 才开始标记裁剪
+      if (accumulated < PRUNE_PROTECT) continue
+
+      // ★ 标记为已压缩 (不删除数据, 下次 toModelMessages 时替换为占位文本)
+      part.state.time.compacted = Date.now()
+    }
+  }
+
+  // 只有累积量 > PRUNE_MINIMUM (20K) 才真正执行裁剪
+  if (accumulated < PRUNE_MINIMUM) return // 不值得裁剪
+}
+
+// ═══════ 压缩 Agent 执行 ═══════
+async function process(messages, sessionID, auto) {
+  // 使用专门的 "compaction" Agent (不是当前 Agent)
+  const compactionAgent = Agent.get("compaction")
+
+  // ★ 不给压缩 Agent 任何工具 (只要它生成摘要文本)
+  const tools = {}
+
+  // 压缩 Prompt 模板:
+  const prompt = `
+  Provide a detailed prompt for continuing our conversation above.
+  Focus on:
+  - What we did
+  - What we're doing now
+  - Which files were involved
+  - What we plan to do next
+
+  Use this template:
+  # Goal
+  # Instructions
+  # Discoveries
+  # Accomplished
+  # Relevant files and directories
+  `
+
+  // 调用 LLM 生成摘要
+  const result = await processor.process({
+    model: compactionAgent.model,
+    system: [],
+    tools: {},
+    messages: [...modelMessages, { role: "user", content: prompt }],
+  })
+
+  // ★ 如果是自动压缩, 追加一条 "继续" 消息
+  if (auto && result === "continue") {
+    await MessageV2.create({
+      role: "user",
+      text: "Continue if you have next steps..."
+    })
+  }
+
+  Bus.publish("session.compacted", { sessionID })
+}1c:["$","pre",null,{"children":["$","code",null,{"children":"$47"}]}]
+1d:["$","h2",null,{"children":"Doom Loop 检测 — 防止 AI 陷入死循环"}]
+1e:["$","pre",null,{"children":["$","code",null,{"children":"// processor.ts — Doom Loop 检测\n\n// 场景: LLM 反复调用同一工具做同样的事\n// 例如: read(\"app.ts\") → read(\"app.ts\") → read(\"app.ts\")\n// 原因: LLM 可能\"忘记\"自己已经读过这个文件\n\nconst DOOM_LOOP_THRESHOLD = 3\n\n// 每次 tool-call 事件时:\nthis.lastToolParts.push(currentToolPart)\n\nif (this.lastToolParts.length >= DOOM_LOOP_THRESHOLD) {\n  const last3 = this.lastToolParts.slice(-3)\n\n  const allSame = last3.every(p =>\n    p.tool === last3[0].tool &&\n    JSON.stringify(p.state.input) === JSON.stringify(last3[0].state.input)\n  )\n\n  if (allSame) {\n    // ★ 不是直接终止, 而是让用户决定\n    await permission.ask({\n      permission: \"doom_loop\",\n      patterns: [],\n    })\n    // 用户选择:\n    // - allow → 继续执行 (也许 LLM 有自己的理由)\n    // - reject → 终止循环 (blocked = true)\n  }\n}"}]}]
+1f:["$","h2",null,{"children":"LLM 调用层的隐藏细节"}]
+48:T67f,// llm.ts — 你可能不知道的细节
+
+// ★ 工具名修复: LLM 有时候输出错误大小写的工具名
+experimental_repairToolCall: async (args) => {
+  // 如果工具名大小写不匹配但 toLowerCase 后匹配:
+  // "Bash" → "bash", "READ" → "read"
+  const lowered = args.toolName.toLowerCase()
+  const match = Object.keys(tools).find(
+    t => t.toLowerCase() === lowered
+  )
+  if (match) return { toolCallId: args.id, toolName: match, args: args.args }
+
+  // 完全不匹配 → 创建 dummy "invalid" 工具
+  // LLM 会收到错误信息, 下次调用正确的工具名
+  return { toolCallId: args.id, toolName: "invalid", args: {} }
+}
+
+// ★ LiteLLM Proxy 兼容
+// LiteLLM 代理要求: 如果历史消息中有工具调用, 当前请求也必须包含工具
+// 否则 API 报错
+if (isLiteLLMProxy && noToolsButHistoryHasToolCalls) {
+  tools["_noop"] = {
+    description: "No-op tool",
+    parameters: z.object({}),
+    execute: async () => ({ output: "" }),
+  }
+}
+
+// ★ Provider 特定 Header
+if (providerID.startsWith("opencode")) {
+  headers["x-opencode-project"] = projectID
+  headers["x-opencode-session"] = sessionID
+  headers["x-opencode-request"] = requestID
+  headers["x-opencode-client"] = clientType
+} else if (providerID !== "anthropic") {
+  headers["User-Agent"] = "opencode/" + VERSION
+}
+
+// ★ 消息中间件: 在 streamText 之前对消息做 Provider-specific 变换
+const languageModel = wrapLanguageModel({
+  model: provider.languageModel(model.api.id),
+  middleware: {
+    transformParams: async (params) => {
+      params.prompt = ProviderTransform.message(model, params.prompt)
+      return params
+    }
+  }
+})20:["$","pre",null,{"children":["$","code",null,{"children":"$48"}]}]
+21:["$","h2",null,{"children":"错误分类 — 13 种错误模式"}]
+22:["$","pre",null,{"children":["$","code",null,{"children":"// message-v2.ts — fromError() 错误分类\n\nswitch (true) {\n  case AbortError:\n    → MessageV2.AbortedError  // 用户中止\n\n  case OutputLengthError:\n    → 原样返回  // LLM 输出超长\n\n  case LoadAPIKeyError:\n    → MessageV2.AuthError  // API Key 无效/缺失\n\n  case ECONNRESET:\n    → MessageV2.APIError(isRetryable: true)  // 连接重置, 可重试\n\n  case APICallError:\n    // 由 ProviderError.parseAPICallError 进一步分类:\n    // 解析 13+ Provider 的错误格式 (每家的 JSON 结构都不同)\n    if (type === \"context_overflow\")\n      → MessageV2.ContextOverflowError  // 上下文溢出\n    else\n      → MessageV2.APIError  // 其他 API 错误\n\n  case StreamError:\n    // 流式传输中途断开\n    → ProviderError.parseStreamError()  // 尝试解析\n    → ContextOverflowError 或 APIError\n\n  default:\n    → NamedError.Unknown  // 未知错误\n}"}]}]
+23:["$","h2",null,{"children":"完整流程图 — 一个多步骤任务"}]
+49:Ted7,用户: "修复 src/app.ts 里的 bug, 然后运行测试"
+  │
+  ▼
+prompt.ts: loop() 开始
+  │
+  ├── 第 1 轮 ─────────────────────────────────
+  │   resolveTools(): 组装 18+ 工具
+  │   buildSystemPrompt(): Claude prompt + 环境信息
+  │   toModelMessages(): 转换历史 (空, 这是第一轮)
+  │   processor.process():
+  │     ┌ start-step
+  │     │   Snapshot.track() ← 记录当前文件状态
+  │     │
+  │     │ text-delta: "让我先看看代码..."
+  │     │   → Bus("message.part.delta") → SSE → 前端打字效果
+  │     │
+  │     │ tool-call: read({ file: "src/app.ts" })
+  │     │   → 权限检查: "read" + "src/app.ts" → allow
+  │     │   → ReadTool.execute() → 返回文件内容
+  │     │   → Bus("message.part.updated") → SSE → 绿色工具卡片
+  │     │
+  │     │ tool-call: read({ file: "src/app.test.ts" })
+  │     │   → ReadTool.execute() → 返回测试文件
+  │     │
+  │     └ finish-step: { tokens: 3000, cost: $0.02, finish: "tool_calls" }
+  │       → Snapshot.patch() → 无文件变更
+  │       → isOverflow() → false
+  │   → return "continue" (有工具调用)
+  │
+  ├── 第 2 轮 ─────────────────────────────────
+  │   toModelMessages(): 包含第 1 轮的工具结果
+  │   processor.process():
+  │     ┌ start-step
+  │     │   Snapshot.track()
+  │     │
+  │     │ reasoning-delta: "用户说的 bug 应该是第 42 行的..."
+  │     │   → Extended Thinking 流式输出
+  │     │
+  │     │ text-delta: "找到了 bug, 在第 42 行缺少 null check..."
+  │     │
+  │     │ tool-call: edit({ file: "src/app.ts", oldString: "...", newString: "..." })
+  │     │   → 权限检查: "edit" + "src/app.ts" → ask (首次编辑)
+  │     │   → Bus("permission.asked") → SSE → 前端显示确认对话框
+  │     │   → 用户点击 "Always" → 规则持久化
+  │     │   → EditTool.execute() → 9 种替换策略尝试匹配
+  │     │   → LSP 诊断检查 → 无新错误
+  │     │   → Bus("message.part.updated") → 绿色卡片
+  │     │
+  │     └ finish-step: { tokens: 2000, cost: $0.015 }
+  │       → Snapshot.patch() → { file: "src/app.ts", +3, -1 }
+  │       → createPart("patch", { files: [...] })
+  │   → return "continue"
+  │
+  ├── 第 3 轮 ─────────────────────────────────
+  │   processor.process():
+  │     ┌ start-step
+  │     │ text-delta: "修复完成, 运行测试验证..."
+  │     │
+  │     │ tool-call: bash({ command: "npm test", description: "Run tests" })
+  │     │   → 权限检查: "bash" + "npm test" → ask
+  │     │   → BashTool: Tree-sitter 解析 → 无外部目录
+  │     │   → spawn("npm test") → 实时输出流
+  │     │   → metadata 实时更新 (测试输出逐行显示)
+  │     │   → 2分钟超时
+  │     │
+  │     └ finish-step: { tokens: 1500, cost: $0.01 }
+  │   → return "continue"
+  │
+  ├── 第 4 轮 ─────────────────────────────────
+  │   processor.process():
+  │     ┌ start-step
+  │     │ text-delta: "所有测试通过! Bug 已修复..."
+  │     │ (无工具调用)
+  │     └ finish-step: { finish: "stop" }
+  │   → return "stop" ← 纯文本, LLM 认为任务完成
+  │
+  ▼
+返回 AssistantMessage {
+  cost: $0.045,
+  tokens: { input: 8000, output: 3500, cache: { read: 5000 } },
+  finish: "stop"
+}24:["$","pre",null,{"children":["$","code",null,{"children":"$49"}]}]
+25:["$","h2",null,{"children":"崩溃恢复 — SubAgent 没跑完就退出了怎么办？"}]
+26:["$","p",null,{"children":"假设 LLM 决定调用 Task 工具发起一个 SubAgent，这个 SubAgent 正在跑（比如正在帮你搜索代码），这时候进程挂了——你 Ctrl+C 了、终端崩了、电脑没电了。下次重新打开，会发生什么？"}]
+27:["$","p",null,{"children":["要回答这个问题，得先搞清楚两件事：",["$","strong",null,{"children":"哪些状态活在内存里"}],"，",["$","strong",null,{"children":"哪些状态躺在数据库里"}],"。"]}]
+4a:Tacb,┌──────────────────────────────────────────────────────────────┐
+│                    内存 (进程死就没了)                         │
+│                                                              │
+│  Instance.state() → Record<sessionID, {                      │
+│    abort: AbortController   // 取消信号                       │
+│    callbacks: Promise[]     // 等待完成的回调                  │
+│  }>                                                          │
+│                                                              │
+│  SessionStatus (纯内存 Map)                                   │
+│    "session_123" → { type: "busy" }                          │
+│    进程重启后 → 空 Map，所有 session 默认 "idle"               │
+│                                                              │
+│  正在执行的工具函数调用栈                                      │
+│    bash 的 ChildProcess、task 的 await prompt()               │
+│                                                              │
+├──────────────────────────────────────────────────────────────┤
+│                    SQLite (持久化)                             │
+│                                                              │
+│  SessionTable:                                               │
+│    父 session、子 session (SubAgent) 都是独立的行              │
+│    子 session 的 parent_id 指向父 session                     │
+│                                                              │
+│  MessageTable:                                               │
+│    每条消息：role, finish, tokens, time...                    │
+│    finish 字段 = "stop" | "tool-calls" | undefined           │
+│    undefined = 消息还没完成                                    │
+│                                                              │
+│  PartTable:                                                  │
+│    ToolPart.state.status = "pending" | "running" |           │
+│                            "completed" | "error"             │
+│    SubtaskPart (命令触发的子任务指令)                          │
+│    TextPart, ReasoningPart, PatchPart...                     │
+└──────────────────────────────────────────────────────────────┘28:["$","pre",null,{"children":["$","code",null,{"children":"$4a"}]}]
+29:["$","h3",null,{"children":"SubAgent 正常执行流程（作为对比）"}]
+2a:["$","pre",null,{"children":["$","code",null,{"children":"// ═══ 时间线：LLM 决定调用 Task 工具 ═══\n\n1. LLM 流输出: \"我需要搜索代码，调用 task 工具\"\n   └── Processor 收到 tool-input-start\n       → 创建 ToolPart { status: \"pending\" }  ← 写入 DB\n\n2. LLM 流完成: finish_reason = \"tool-calls\"\n   └── Processor 收到 finish-step\n       → assistantMessage.finish = \"tool-calls\"  ← 写入 DB\n       → ToolPart { status: \"running\" }          ← 写入 DB\n\n3. AI SDK 内部执行工具函数 (task.ts execute())\n   └── 创建子 Session (Session.create)           ← 写入 DB\n       → parentID = 父 session ID\n   └── 调用 SessionPrompt.prompt() 进入子 session 的循环\n       → 子 session 产生自己的 Message + Part    ← 写入 DB\n\n4. 子 session 循环完成，返回结果\n   └── Processor 收到 tool-result\n       → ToolPart { status: \"completed\", output: \"...\" }  ← 写入 DB\n\n5. 父 session 的 loop 继续\n   └── finish 是 \"tool-calls\" → 不退出，再调一次 LLM\n   └── LLM 看到工具结果，生成最终回复"}]}]
+2b:["$","h3",null,{"children":"场景 A：LLM 还在流式输出时崩溃"}]
+2c:["$","pre",null,{"children":["$","code",null,{"children":"崩溃时 DB 状态:\n  AssistantMessage: { finish: undefined }     // 没写完\n  ToolPart:         { status: \"pending\" }     // 还没开始\n\n恢复后 loop() 的行为:\n  1. 从 DB 加载消息\n  2. lastAssistant.finish = undefined\n     → 这条消息被视为\"未完成\"\n  3. 退出条件不满足 → 循环继续\n  4. 创建新的 AssistantMessage，重新调用 LLM\n  5. LLM 看到上一条未完成的消息在历史中\n     → 会自动继续之前的思路\n\n影响: 最小。相当于重试一次 LLM 调用。"}]}]
+2d:["$","h3",null,{"children":"场景 B：工具正在执行时崩溃（最常见的 SubAgent 场景）"}]
+2e:["$","pre",null,{"children":["$","code",null,{"children":"崩溃时 DB 状态:\n  父 AssistantMessage: { finish: \"tool-calls\" }  // ✓ LLM 已完成\n  父 ToolPart:         { status: \"running\" }      // ✗ 工具没跑完\n  子 Session:          存在，有部分消息            // ✓ 已创建\n  子 Session 的消息:    可能跑了一半               // ✓ 已持久化\n\n恢复后 loop() 的行为:\n  1. 从 DB 加载消息\n  2. lastAssistant.finish = \"tool-calls\"\n     → 退出条件: ![\"tool-calls\",\"unknown\"].includes(\"tool-calls\")\n     → false → 不退出，循环继续\n  3. 但是！Processor 的清理代码没跑过\n     → ToolPart 仍然是 \"running\" (不是 \"error\")\n  4. 进入新一轮 processor.process()\n  5. 创建新的 AssistantMessage 给 LLM\n  6. toModelMessages() 把历史转换给 LLM:\n     → 上一轮的 tool_call 会出现\n     → 但 tool_result 是 \"running\" 状态 (无结果)\n  7. LLM 看到上次调用了工具但没拿到结果\n     → 通常会重新调用同一个工具"}]}]
+2f:["$","p",null,{"children":[["$","strong",null,{"children":"关键细节："}],"子 Session 已经在数据库里了。如果 LLM 重新调用 task 工具时传入了 ",["$","code",null,{"children":"task_id"}],"（即之前子 session 的 ID），Task 工具会复用那个子 session 而不是新建一个："]}]
+30:["$","pre",null,{"children":["$","code",null,{"children":"// task.ts — 复用已有子 session 的逻辑\nconst session = await iife(async () => {\n  if (params.task_id) {\n    const found = await Session.get(params.task_id).catch(() => {})\n    if (found) return found  // ← 复用！不重新创建\n  }\n  return await Session.create({ parentID: ctx.sessionID, ... })\n})"}]}]
+31:["$","p",null,{"children":["但因为崩溃导致上一轮没有返回结果（结果里本应包含"," ",["$","code",null,{"children":"task_id: session_xxx (for resuming...)"}],"）， LLM 通常不会知道 task_id。所以",["$","strong",null,{"children":"大概率会创建一个全新的子 session"}],"， 之前的子 session 变成孤儿。"]}]
+32:["$","h3",null,{"children":"SubtaskPart vs ToolPart：两种子任务的恢复差异"}]
+33:["$","pre",null,{"children":["$","code",null,{"children":"┌───────────────────────────────────────────────────────────────┐\n│  方式 1: LLM 调用 task 工具 (最常见)                          │\n│                                                               │\n│  触发: LLM → tool_call(task, {...})                           │\n│  记录: ToolPart { tool: \"task\", status: \"running\" }           │\n│  恢复: 靠 LLM 自己判断，看到上次工具没结果 → 重试             │\n│  特点: 恢复行为不确定，取决于 LLM 的判断                      │\n├───────────────────────────────────────────────────────────────┤\n│  方式 2: 命令/@ 触发 (SubtaskPart)                           │\n│                                                               │\n│  触发: 用户 @agent 或 /command → 写入 SubtaskPart             │\n│  记录: SubtaskPart { type: \"subtask\", prompt, agent }         │\n│  恢复: loop() 主动扫描 → 发现 SubtaskPart → 自动重新执行     │\n│  特点: 确定性恢复，系统会自动重试                              │\n└───────────────────────────────────────────────────────────────┘"}]}]
+34:["$","p",null,{"children":"SubtaskPart 的恢复逻辑在 loop() 中是显式的："}]
+35:["$","pre",null,{"children":["$","code",null,{"children":"// prompt.ts loop() — 每次迭代都扫描未完成的子任务\nlet tasks: (CompactionPart | SubtaskPart)[] = []\nfor (let i = msgs.length - 1; i >= 0; i--) {\n  const msg = msgs[i]\n  if (lastUser && lastFinished) break\n\n  const task = msg.parts.filter(\n    part => part.type === \"compaction\" || part.type === \"subtask\"\n  )\n  if (task && !lastFinished) {\n    tasks.push(...task)\n  }\n}\n\nconst task = tasks.pop()\nif (task?.type === \"subtask\") {\n  // ★ 自动重新执行！不需要 LLM 判断\n  await executeSubtask(task)\n  continue\n}"}]}]
+36:["$","h3",null,{"children":"Processor 的清理逻辑（正常退出时才会跑）"}]
+37:["$","pre",null,{"children":["$","code",null,{"children":"// processor.ts line 393-411 — 流处理结束后的清理\n\nconst parts = await MessageV2.parts(assistantMessage.id)\nfor (const part of parts) {\n  if (\n    part.type === \"tool\" &&\n    part.state.status !== \"completed\" &&\n    part.state.status !== \"error\"\n  ) {\n    // 把 \"pending\" 或 \"running\" 的工具标记为 \"error\"\n    await Session.updatePart({\n      ...part,\n      state: {\n        ...part.state,\n        status: \"error\",\n        error: \"Tool execution aborted\",\n      },\n    })\n  }\n}\nassistantMessage.time.completed = Date.now()\nawait Session.updateMessage(assistantMessage)\n\n// ★ 进程崩溃时，这段代码永远不会执行\n// → DB 里的 ToolPart 永远停在 \"running\"\n// → AssistantMessage 的 time.completed 永远是 undefined"}]}]
+38:["$","h3",null,{"children":"Bash 工具与进程生命周期"}]
+39:["$","p",null,{"children":["OpenCode 目前没有真正的\"后台任务\"——所有工具（包括 Bash）都在主进程内同步执行。 Bash 工具通过 ",["$","code",null,{"children":"spawn"}]," 创建子进程，用"," ",["$","code",null,{"children":"detached: true"}],"（Unix）放在独立进程组："]}]
+3a:["$","pre",null,{"children":["$","code",null,{"children":"主进程存活时:\n  ┌──────────┐    stdio pipe    ┌──────────┐\n  │ OpenCode │◄────────────────►│ bash -c  │\n  │ (Bun)    │    abort signal  │ \"npm run │\n  │          │───────────────►  │  build\"  │\n  └──────────┘                  └──────────┘\n\n  取消/超时 → Shell.killTree():\n    process.kill(-pid, \"SIGTERM\") → 等 200ms → SIGKILL\n\n主进程崩溃时:\n  ┌──────────┐                  ┌──────────┐\n  │ OpenCode │  ← 死亡           │ bash -c  │\n  │ (dead)   │                  │ \"npm run │\n  └──────────┘                  │  build\"  │ ← 可能还在跑！\n                                └──────────┘\n\n  detached: true → 子进程不会自动被杀 → 变成孤儿进程\n  OS 的 init 进程会接管，但 OpenCode 已不关心它的输出"}]}]
+3b:["$","h3",null,{"children":"完整恢复流程图"}]
+3c:["$","pre",null,{"children":["$","code",null,{"children":"进程崩溃\n  │\n  ▼\n进程重启\n  │\n  ├── Instance.state() 全部重置为空\n  │   └── 所有 SessionStatus → \"idle\"\n  │   └── 所有 AbortController → 不存在\n  │\n  ├── SQLite 完好无损 (WAL 模式保证)\n  │   └── Session/Message/Part 记录完整\n  │   └── 可能有 finish=undefined 的消息\n  │   └── 可能有 status=\"running\" 的 ToolPart\n  │\n  ▼\n用户选择 session 继续对话\n  │\n  ▼\nSessionPrompt.loop({ sessionID })\n  │\n  ├── start() → 创建新 AbortController\n  ├── 加载消息 → 分析 lastUser / lastFinished\n  │\n  ├── 检查 SubtaskPart → 找到? → 自动重新执行\n  │\n  ├── 退出条件:\n  │   ├── finish = \"tool-calls\"? → 不退出，继续\n  │   ├── finish = undefined?    → 不退出，继续\n  │   └── finish = \"stop\" 且比 lastUser 新? → 退出\n  │\n  └── 不退出 → 新建 AssistantMessage → 调 LLM\n      └── LLM 看到历史中未完成的工具调用 → 自行决定重试\n      └── 对用户来说: Agent 只是\"断了一下\"然后继续了"}]}]
+3d:["$","h2",null,{"children":"设计要点"}]
+3e:["$","ul",null,{"children":[["$","li",null,{"children":[["$","strong",null,{"children":"三层分离不只是\"分层\""}]," — Prompt 是决策层（决定做什么）， Processor 是执行层（如何做），LLM 是通信层（与谁对话）。 每层都有自己的状态管理和错误处理。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"循环不是无脑重试"}]," — 每次迭代都重新加载消息、检查压缩状态、处理子任务， 而不是简单地\"把工具结果追加到消息列表再调用一次\"。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"消息转换是最容易出 Bug 的地方"}]," — 12 种 Part 类型 × 15+ Provider × 媒体兼容性 × 已压缩内容 = 大量边界情况。toModelMessages 的 200 行代码都是在处理这些。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"缓存优化是省钱的关键"}]," — 2 段式 System Prompt + 最后 2 条消息缓存标记， 让 Anthropic API 的缓存命中率最大化。缓存命中的 token 只需 0.1x 的价格。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"压缩不是截断"}]," — 工具结果裁剪（标记而非删除）+ 压缩 Agent 生成摘要 + 保留最近 2 轮完整上下文，在减少 token 的同时尽量保持信息完整。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"安全阀多层叠加"}]," — Doom Loop 检测 + 权限系统 + AbortSignal + 上下文溢出自动压缩 + 错误分类重试，防止循环失控。"]}]]}]
+3f:["$","$L4b",null,{"children":["$L4c",["$","$L4d",null,{"promise":"$@4e"}]]}]
+40:["$","$1","h",{"children":[null,[["$","$L4f",null,{"children":"$L50"}],null],["$","$L51",null,{"children":["$","div",null,{"hidden":true,"children":["$","$52",null,{"fallback":null,"children":"$L53"}]}]}]]}]
+7:"$0:f:0:1:2:children:1:props:children:1:props:params"
+50:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+4c:null
+4e:{"metadata":[["$","title","0",{"children":"OpenCode"}],["$","meta","1",{"name":"description","content":"AI Agent Chat Interface"}]],"error":null,"digest":"$undefined"}
+53:"$4e:metadata"

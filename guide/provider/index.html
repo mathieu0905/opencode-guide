@@ -1,0 +1,430 @@
+<!DOCTYPE html><!--bye4CeShaPMDcn_ypi8Us--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-103dca6b3bf7cb84.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Provider LLM 抽象层</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/provider/provider.ts</code> (56KB)<br/>消息变换：<code>packages/opencode/src/provider/transform.ts</code><br/>自定义加载：<code>packages/opencode/src/provider/custom.ts</code></p><h2>概述</h2><p>Provider 系统将 <strong>15+ LLM 提供商</strong>统一在同一个接口下。 但这不只是&quot;换个 API Key&quot;那么简单——每个 Provider 都有自己的<strong>消息格式怪癖、 Tool ID 限制、缓存机制、认证方式</strong>。Provider 层的核心工作就是抹平这些差异。</p><h2>架构全景图</h2><pre><code>
+  ┌──────────────────────────────────────────────────────────────┐
+  │  OpenCode Agent Loop (prompt.ts / llm.ts)                    │
+  │                                                              │
+  │  只看到统一的 Provider.Model 接口:                             │
+  │    model.id, model.capabilities, model.cost, model.limit     │
+  └───────────────────────────┬──────────────────────────────────┘
+                              │
+                    streamText({ model, messages, tools })
+                              │
+                              ▼
+  ┌──────────────────────────────────────────────────────────────┐
+  │  Vercel AI SDK — 统一流式接口                                  │
+  │                                                              │
+  │  ┌──────────────────────────────────────────────────────┐   │
+  │  │  wrapLanguageModel()                                 │   │
+  │  │    middleware: {                                      │   │
+  │  │      transformParams: ProviderTransform.message()     │   │
+  │  │    }                                                 │   │
+  │  │  ★ 在调用前做 Provider-specific 消息变换               │   │
+  │  └──────────────────────────────────────────────────────┘   │
+  └───────────────────────────┬──────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+  ┌───────────────┐ ┌──────────────┐ ┌──────────────┐
+  │   Anthropic   │ │    OpenAI    │ │    Google    │ ...
+  │               │ │              │ │    Gemini    │
+  │ @ai-sdk/     │ │ @ai-sdk/    │ │ @ai-sdk/    │
+  │ anthropic    │ │ openai      │ │ google      │
+  │               │ │              │ │              │
+  │ ┌───────────┐│ │ ┌──────────┐│ │ ┌──────────┐│
+  │ │Cache Ctrl ││ │ │Responses ││ │ │Gemini 3.x││
+  │ │ephemeral  ││ │ │API       ││ │ │media      ││
+  │ │           ││ │ │          ││ │ │support    ││
+  │ └───────────┘│ │ └──────────┘│ │ └──────────┘│
+  └───────────────┘ └──────────────┘ └──────────────┘
+         │                 │                │
+         ▼                 ▼                ▼
+  ┌─────────────────────────────────────────────────┐
+  │              HTTPS API Endpoints                 │
+  │  api.anthropic.com  api.openai.com  ...         │
+  └─────────────────────────────────────────────────┘
+</code></pre><h2>15+ Provider 全览</h2><pre><code>
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  Provider                │  SDK Package                │ 特点   │
+  ├──────────────────────────┼───────────────────────────────┼───────┤
+  │  Anthropic               │  @ai-sdk/anthropic           │ 主力   │
+  │  OpenAI                  │  @ai-sdk/openai              │ GPT系  │
+  │  Google Gemini           │  @ai-sdk/google              │ 2.5Pro │
+  │  Azure OpenAI            │  @ai-sdk/azure               │ 企业   │
+  │  Vertex AI (Gemini)      │  @ai-sdk/google-vertex       │ GCP   │
+  │  Vertex AI (Anthropic)   │  @ai-sdk/google-vertex/anth  │ GCP   │
+  │  Amazon Bedrock          │  @ai-sdk/amazon-bedrock      │ AWS   │
+  │  OpenRouter              │  @openrouter/ai-sdk-provider │ 聚合   │
+  │  xAI                     │  @ai-sdk/xai                 │ Grok  │
+  │  Mistral                 │  @ai-sdk/mistral             │ EU    │
+  │  Groq                    │  @ai-sdk/groq                │ 快速   │
+  │  DeepInfra               │  @ai-sdk/deepinfra           │ 开源   │
+  │  Cerebras                │  @ai-sdk/cerebras            │ 超快   │
+  │  Cohere                  │  @ai-sdk/cohere              │ RAG   │
+  │  GitHub Copilot          │  自定义 SDK                   │ 特殊   │
+  └──────────────────────────┴───────────────────────────────┴───────┘
+</code></pre><h2>Model 数据结构 — 完整字段</h2><pre><code>type Provider.Model = {
+  // ═══════ 标识 ═══════
+  id: string              // 内部 ID e.g. &quot;claude-opus-4&quot;
+  providerID: string      // Provider ID e.g. &quot;anthropic&quot;
+
+  api: {
+    npm: string           // SDK 包名 e.g. &quot;@ai-sdk/anthropic&quot;
+    id: string            // API 模型 ID e.g. &quot;claude-opus-4-20250514&quot;
+  }
+
+  // ═══════ 能力声明 ═══════
+  capabilities: {
+    temperature: boolean  // 支持 temperature 参数?
+    reasoning: boolean    // 支持 extended thinking?
+    vision: boolean       // 支持图片输入?
+    output_format: boolean // 支持结构化输出 (JSON schema)?
+    computer_use: boolean // 支持计算机使用?
+  }
+
+  // ═══════ 上下文限制 ═══════
+  limit: {
+    context: number       // 总上下文窗口 e.g. 200000
+    input?: number        // 最大输入 token (可选, 某些 Provider 分别限制)
+    output: number        // 最大输出 token e.g. 16384
+  }
+
+  // ═══════ 成本追踪 ═══════
+  cost?: {
+    input: number         // 每百万 input token 美元 e.g. 15.0
+    output: number        // 每百万 output token 美元 e.g. 75.0
+    cache: number         // 缓存读取价格 e.g. 1.5
+  }
+
+  // ═══════ Provider 特定 ═══════
+  options?: Record&lt;string, any&gt;       // e.g. { thinking: { budget: 10000 } }
+  variants?: Record&lt;string, Variant&gt;  // 模型变体
+  headers?: Record&lt;string, string&gt;    // 自定义请求头
+}</code></pre><h2>Provider 初始化流程</h2><pre><code>
+  配置加载                   SDK 创建                    实际使用
+  ─────────                  ─────────                   ─────────
+
+  opencode.json              Provider Registry            LLM.stream()
+  ┌──────────┐               ┌──────────────┐             ┌──────────┐
+  │ provider: │    解析       │ Provider Map │    查找     │ streamText│
+  │  anthropic│──────────────►│  anthropic:  │────────────►│  model:  │
+  │    api_key│               │    create()  │             │  langMdl │
+  │    base_url               │    loader    │             └──────────┘
+  │  openai:  │               │  openai:     │
+  │    api_key│               │    create()  │
+  └──────────┘               └──────────────┘
+
+  // 详细的 Provider 创建流程:
+  function createProvider(providerID, config) {
+
+    // ★ 第 1 步: 解析 API Key
+    // 优先级: 环境变量 &gt; 配置文件 &gt; 插件 auth hook
+    const apiKey = process.env.ANTHROPIC_API_KEY
+                ?? config.api_key
+                ?? await Plugin.auth({ provider: providerID })
+
+    // ★ 第 2 步: 创建 SDK 实例
+    const sdkCreate = await import(config.npm ?? defaultNpm)
+    // e.g. import { createAnthropic } from &quot;@ai-sdk/anthropic&quot;
+
+    const provider = sdkCreate({
+      apiKey,
+      baseURL: config.base_url,
+      headers: {
+        ...config.headers,
+        // ★ OpenCode 自定义 header
+        &quot;x-opencode-version&quot;: VERSION,
+      },
+    })
+
+    // ★ 第 3 步: 获取 LanguageModel
+    return provider.languageModel(model.api.id)
+    // e.g. provider.languageModel(&quot;claude-opus-4-20250514&quot;)
+  }
+</code></pre><h2>消息规范化 — Provider 的怪癖们</h2><p>你可能以为&quot;统一接口&quot;意味着各 Provider API 格式相同。 实际上每家都有自己的<strong>限制和怪癖</strong>：</p><pre><code>
+  ┌─────────────────────────────────────────────────────────────────┐
+  │  ProviderTransform.message()  — 消息规范化流水线                 │
+  │                                                                 │
+  │  输入: 统一的 CoreMessage[]                                      │
+  │                                                                 │
+  │  ┌──────────────────────────────────────────────────────────┐   │
+  │  │ 1. Anthropic 规范化                                      │   │
+  │  │    ✕ 空文本 Part → 过滤掉                                │   │
+  │  │    ✕ 空推理 Part → 过滤掉                                │   │
+  │  │    ✕ 空消息 → 整条删除                                   │   │
+  │  │    → Anthropic API 对空内容返回 400 错误                  │   │
+  │  └──────────────────────────────────────────────────────────┘   │
+  │                         │                                       │
+  │                         ▼                                       │
+  │  ┌──────────────────────────────────────────────────────────┐   │
+  │  │ 2. Claude Tool ID 清洗                                   │   │
+  │  │    toolCallId.replace(/[^a-zA-Z0-9_-]/g, &quot;_&quot;)           │   │
+  │  │    &quot;call_abc+123&quot; → &quot;call_abc_123&quot;                      │   │
+  │  │    → Claude 只接受 [a-zA-Z0-9_-] 字符                    │   │
+  │  └──────────────────────────────────────────────────────────┘   │
+  │                         │                                       │
+  │                         ▼                                       │
+  │  ┌──────────────────────────────────────────────────────────┐   │
+  │  │ 3. Mistral 特殊处理                                      │   │
+  │  │    ① Tool ID 截断为 9 字符: &quot;abcdefghij&quot; → &quot;abcdefghi&quot;  │   │
+  │  │    ② 不足 9 字符补 0: &quot;abc&quot; → &quot;abc000000&quot;               │   │
+  │  │    ③ tool message 后不能直接跟 user message              │   │
+  │  │       → 插入 { role: &quot;assistant&quot;, content: &quot;Done.&quot; }    │   │
+  │  └──────────────────────────────────────────────────────────┘   │
+  │                         │                                       │
+  │                         ▼                                       │
+  │  ┌──────────────────────────────────────────────────────────┐   │
+  │  │ 4. 缓存标记注入 (applyCaching)                           │   │
+  │  │    对 system + 最后 2 条消息添加 Provider 特定缓存提示      │   │
+  │  └──────────────────────────────────────────────────────────┘   │
+  │                         │                                       │
+  │                         ▼                                       │
+  │  输出: Provider-specific CoreMessage[]                          │
+  └─────────────────────────────────────────────────────────────────┘
+</code></pre><h3>各 Provider 的 Tool ID 限制对比</h3><pre><code>
+  Provider     Tool ID 限制                     处理方式
+  ──────────────────────────────────────────────────────────
+  Anthropic    [a-zA-Z0-9_-]                   替换非法字符为 _
+  Claude       同上                             同上
+  Mistral      恰好 9 个 [a-zA-Z0-9]           截断+补0
+  OpenAI       无严格限制                       原样传递
+  Gemini       无严格限制                       原样传递
+  Bedrock      取决于底层模型                   按底层处理
+
+  示例:
+  原始 ID:     &quot;toolu_01YFT9NsVzmWxkD7rvBY&quot;  (24字符, AI SDK 生成)
+
+  Anthropic:   &quot;toolu_01YFT9NsVzmWxkD7rvBY&quot;   ✓ 合法
+  Mistral:     &quot;toolu01YF&quot;                      截断为 9 字符
+  OpenAI:      &quot;toolu_01YFT9NsVzmWxkD7rvBY&quot;   原样
+</code></pre><h2>缓存控制策略 — 省钱的关键</h2><pre><code>
+  ═══════ 为什么要缓存? ═══════
+
+  不带缓存:
+    每次 LLM 调用: System Prompt (4000 tokens) + 历史消息 (10000 tokens)
+    = 14000 input tokens × $15/M = $0.21
+
+  带缓存:
+    首次: 14000 tokens → $0.21 + 缓存写入费
+    后续: 缓存命中 14000 tokens × $1.5/M = $0.021  ← 90% 折扣!
+
+  ═══════ 缓存标记策略 ═══════
+
+  对话消息数组:
+  ┌──────────────────────────────────────────────────┐
+  │ system[0]: Agent Prompt          ← 缓存标记 ★   │  不变的部分
+  │ system[1]: 环境信息 + 上下文     ← 不缓存       │  每次可能变
+  │──────────────────────────────────────────────────│
+  │ msg[0]: user &quot;开始项目...&quot;                       │
+  │ msg[1]: assistant &quot;好的...&quot;                      │
+  │ msg[2]: user &quot;修改登录...&quot;                       │
+  │ msg[3]: assistant &quot;我来看看...&quot;                   │  中间消息
+  │ ...                                              │  不标记缓存
+  │ msg[N-2]: user &quot;运行测试&quot;        ← 缓存标记 ★   │
+  │ msg[N-1]: assistant &quot;测试结果...&quot;  ← 缓存标记 ★  │  最后 2 条
+  └──────────────────────────────────────────────────┘
+
+  为什么只标记这几个?
+  - System Prompt: 每次调用完全相同 → 缓存命中率 100%
+  - 最后 2 条: 下一轮调用时大概率还在 → 缓存命中率高
+  - 中间消息: 不标记 → 避免缓存条目过多导致命中率下降
+
+  ═══════ 各 Provider 的缓存格式 ═══════
+
+  Anthropic:
+    providerOptions: { anthropic: { cacheControl: { type: &quot;ephemeral&quot; } } }
+
+  Bedrock:
+    providerOptions: { bedrock: { cachePoint: { type: &quot;default&quot; } } }
+
+  OpenRouter:
+    providerOptions: { openrouter: { cacheControl: { type: &quot;ephemeral&quot; } } }
+
+  Copilot:
+    providerOptions: { copilot: { copilot_cache_control: { type: &quot;ephemeral&quot; } } }
+
+  // ★ 统一封装:
+  const CACHE_OPTIONS = {
+    anthropic:        { cacheControl: { type: &quot;ephemeral&quot; } },
+    openrouter:       { cacheControl: { type: &quot;ephemeral&quot; } },
+    bedrock:          { cachePoint: { type: &quot;default&quot; } },
+    openaiCompatible: { cache_control: { type: &quot;ephemeral&quot; } },
+    copilot:          { copilot_cache_control: { type: &quot;ephemeral&quot; } },
+  }
+</code></pre><h2>成本计算</h2><pre><code>
+  ┌─────────────────────────────────────────────────────────────┐
+  │  成本计算公式                                                │
+  │                                                             │
+  │  总成本 = input_cost + output_cost + cache_cost             │
+  │                                                             │
+  │  input_cost   = input_tokens   × (cost.input  / 1,000,000) │
+  │  output_cost  = output_tokens  × (cost.output / 1,000,000) │
+  │  reason_cost  = reason_tokens  × (cost.output / 1,000,000) │  ← 推理按 output 价
+  │  cache_read   = cache.read     × (cost.cache  / 1,000,000) │  ← 缓存价
+  │  cache_write  = cache.write    × (cost.input  / 1,000,000) │  ← 写入按 input 价
+  └─────────────────────────────────────────────────────────────┘
+
+  示例: Claude Opus 4 的一次调用
+
+  ┌───────────────────────────────────────┐
+  │  Token 明细:                          │
+  │    Input:    5,000 tokens             │
+  │    Output:   2,000 tokens             │
+  │    Reasoning:  500 tokens             │
+  │    Cache Read:3,000 tokens            │
+  │    Cache Write:1,000 tokens           │
+  │                                       │
+  │  价格 (Claude Opus 4):                │
+  │    Input:  $15.0 / M                  │
+  │    Output: $75.0 / M                  │
+  │    Cache:  $1.5 / M                   │
+  │                                       │
+  │  计算:                                │
+  │    5000 × 15/M   = $0.075  (input)    │
+  │    2000 × 75/M   = $0.150  (output)   │
+  │     500 × 75/M   = $0.0375 (reason)   │
+  │    3000 × 1.5/M  = $0.0045 (cache rd) │
+  │    1000 × 15/M   = $0.015  (cache wr) │
+  │                   ─────────           │
+  │    总计:           $0.282              │
+  └───────────────────────────────────────┘
+
+  // 成本累积到 AssistantMessage:
+  assistant.cost = 0.282
+  assistant.tokens = {
+    input: 5000, output: 2000,
+    reasoning: 500,
+    cache: { read: 3000, write: 1000 }
+  }
+</code></pre><h2>工具结果中的媒体支持</h2><pre><code>
+  ═══════ 问题: 工具返回了图片, 哪些 Provider 能处理? ═══════
+
+  比如 Read 工具读取了 screenshot.png, 返回 Base64 图片附件。
+  但不是所有 Provider 都支持在 tool_result 中放图片:
+
+  ┌──────────────────────────┬─────────────────────────┐
+  │  Provider                │  tool_result 中的媒体    │
+  ├──────────────────────────┼─────────────────────────┤
+  │  Anthropic               │  ✓ 支持                 │
+  │  OpenAI                  │  ✓ 支持                 │
+  │  Amazon Bedrock          │  ✓ 支持                 │
+  │  Vertex (Anthropic)      │  ✓ 支持                 │
+  │  Google Gemini 3.x       │  ✓ 支持                 │
+  │  Google Gemini 2.x       │  ✕ 不支持               │
+  │  Mistral                 │  ✕ 不支持               │
+  │  其他                    │  ✕ 不支持               │
+  └──────────────────────────┴─────────────────────────┘
+
+  ═══════ 不支持时的处理方式 ═══════
+
+  不支持媒体的 Provider:
+    tool_result 中的图片被提取出来 → 作为单独的 user message 注入
+
+  原始消息:
+    assistant: tool_call(read, screenshot.png)
+    tool:      { output: &quot;...&quot;, attachments: [image.png] }
+
+  转换后 (不支持媒体的 Provider):
+    assistant: tool_call(read, screenshot.png)
+    tool:      { output: &quot;...&quot; }                          ← 移除图片
+    user:      &quot;Attached image(s) from tool result:&quot;      ← 新增消息
+               [image: screenshot.png]
+</code></pre><h2>自定义 Provider 配置</h2><pre><code>// opencode.json — 三种常见场景
+
+// ═══════ 场景 1: 官方 Provider (最简) ═══════
+{
+  &quot;provider&quot;: {
+    &quot;anthropic&quot;: {
+      &quot;api_key&quot;: &quot;sk-ant-...&quot;     // 或用 ANTHROPIC_API_KEY 环境变量
+    }
+  }
+}
+
+// ═══════ 场景 2: OpenAI 兼容的本地/私有部署 ═══════
+{
+  &quot;provider&quot;: {
+    &quot;my-ollama&quot;: {
+      &quot;api_key&quot;: &quot;none&quot;,
+      &quot;base_url&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;npm&quot;: &quot;@ai-sdk/openai&quot;     // 使用 OpenAI SDK
+    }
+  },
+  &quot;model&quot;: {
+    &quot;my-llama&quot;: {
+      &quot;provider&quot;: &quot;my-ollama&quot;,
+      &quot;id&quot;: &quot;llama3:70b&quot;,
+      &quot;context_window&quot;: 128000,
+      &quot;max_output_tokens&quot;: 4096,
+      &quot;cost&quot;: { &quot;input&quot;: 0, &quot;output&quot;: 0, &quot;cache&quot;: 0 }
+    }
+  }
+}
+
+// ═══════ 场景 3: 企业 Azure 部署 ═══════
+{
+  &quot;provider&quot;: {
+    &quot;azure&quot;: {
+      &quot;api_key&quot;: &quot;...&quot;,
+      &quot;base_url&quot;: &quot;https://my-deployment.openai.azure.com&quot;,
+      &quot;api_version&quot;: &quot;2024-02-15-preview&quot;
+    }
+  }
+}</code></pre><h2>Provider 选择流程</h2><pre><code>
+  用户指定 &quot;anthropic/claude-opus-4&quot;
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │  解析: providerID = &quot;anthropic&quot;              │
+  │         modelID = &quot;claude-opus-4&quot;            │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────┐
+  │  查找 Provider 定义:                          │
+  │                                              │
+  │  1. 内置 Provider? (15+ 内置)                │
+  │     → 已有 npm 包名、模型列表、默认配置       │
+  │                                              │
+  │  2. 配置中的自定义 Provider?                  │
+  │     → 读取 config.provider[&quot;my-ollama&quot;]      │
+  │                                              │
+  │  3. 都没有? → 错误                           │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────┐
+  │  查找 Model 定义:                             │
+  │                                              │
+  │  1. 内置模型? (每个 Provider 有预定义模型)    │
+  │     → 已有 context_window、cost、capabilities │
+  │                                              │
+  │  2. 配置中的自定义模型?                       │
+  │     → 读取 config.model[&quot;my-llama&quot;]          │
+  │     → 合并默认值                              │
+  │                                              │
+  │  3. 都没有? → 使用 Provider 的默认模型        │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────┐
+  │  获取 API Key:                                │
+  │                                              │
+  │  环境变量 (ANTHROPIC_API_KEY)                 │
+  │       ↓ 没有                                  │
+  │  配置文件 (config.provider.anthropic.api_key) │
+  │       ↓ 没有                                  │
+  │  Plugin auth hook (Plugin.auth())            │
+  │       ↓ 没有                                  │
+  │  错误: &quot;No API key found&quot;                    │
+  └──────────────────┬───────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────┐
+  │  创建 AI SDK Provider 实例                    │
+  │  → import(npm).create({ apiKey, baseURL })   │
+  │  → provider.languageModel(model.api.id)      │
+  │  → wrapLanguageModel({ middleware })          │
+  └──────────────────────────────────────────────┘
+</code></pre><h2>设计要点</h2><ul><li><strong>AI SDK 统一层是核心</strong> — Vercel AI SDK 提供了统一的 streamText 接口， 但 OpenCode 在此之上加了 middleware（消息变换）和 Provider 特定处理， 处理了 AI SDK 没有覆盖的差异。</li><li><strong>消息规范化处理了 Provider 的怪癖</strong> — Anthropic 拒绝空消息、 Claude 限制 Tool ID 字符、Mistral 要求 9 字符 ID + 不允许 tool→user 连续。 这些都是实战中发现的问题，不看源码你不会知道。</li><li><strong>缓存策略直接影响成本</strong> — 合理的缓存标记可以将 API 费用降低 50-90%。 System Prompt + 最后 2 条消息的策略平衡了命中率和缓存条目数。</li><li><strong>成本透明</strong> — 每次调用精确计算到 token 级别的费用， 用户可以看到每条消息、每个步骤的花费。</li><li><strong>零代码切换模型</strong> — 只需改 config 中的 default_model， 所有 Provider 的差异由框架自动处理。</li></ul></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"210\",\"static/chunks/app/guide/layout-103dca6b3bf7cb84.js\"],\"default\"]\n22:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n8:Tfa5,"])</script><script>self.__next_f.push([1,"\n  ┌──────────────────────────────────────────────────────────────┐\n  │  OpenCode Agent Loop (prompt.ts / llm.ts)                    │\n  │                                                              │\n  │  只看到统一的 Provider.Model 接口:                             │\n  │    model.id, model.capabilities, model.cost, model.limit     │\n  └───────────────────────────┬──────────────────────────────────┘\n                              │\n                    streamText({ model, messages, tools })\n                              │\n                              ▼\n  ┌──────────────────────────────────────────────────────────────┐\n  │  Vercel AI SDK — 统一流式接口                                  │\n  │                                                              │\n  │  ┌──────────────────────────────────────────────────────┐   │\n  │  │  wrapLanguageModel()                                 │   │\n  │  │    middleware: {                                      │   │\n  │  │      transformParams: ProviderTransform.message()     │   │\n  │  │    }                                                 │   │\n  │  │  ★ 在调用前做 Provider-specific 消息变换               │   │\n  │  └──────────────────────────────────────────────────────┘   │\n  └───────────────────────────┬──────────────────────────────────┘\n                              │\n              ┌───────────────┼───────────────┐\n              ▼               ▼               ▼\n  ┌───────────────┐ ┌──────────────┐ ┌──────────────┐\n  │   Anthropic   │ │    OpenAI    │ │    Google    │ ...\n  │               │ │              │ │    Gemini    │\n  │ @ai-sdk/     │ │ @ai-sdk/    │ │ @ai-sdk/    │\n  │ anthropic    │ │ openai      │ │ google      │\n  │               │ │              │ │              │\n  │ ┌───────────┐│ │ ┌──────────┐│ │ ┌──────────┐│\n  │ │Cache Ctrl ││ │ │Responses ││ │ │Gemini 3.x││\n  │ │ephemeral  ││ │ │API       ││ │ │media      ││\n  │ │           ││ │ │          ││ │ │support    ││\n  │ └───────────┘│ │ └──────────┘│ │ └──────────┘│\n  └───────────────┘ └──────────────┘ └──────────────┘\n         │                 │                │\n         ▼                 ▼                ▼\n  ┌─────────────────────────────────────────────────┐\n  │              HTTPS API Endpoints                 │\n  │  api.anthropic.com  api.openai.com  ...         │\n  └─────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"bye4CeShaPMDcn-ypi8Us\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"provider\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"provider\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"provider\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Provider LLM 抽象层\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/provider/provider.ts\"}],\" (56KB)\",[\"$\",\"br\",null,{}],\"消息变换：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/provider/transform.ts\"}],[\"$\",\"br\",null,{}],\"自定义加载：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/provider/custom.ts\"}]]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"Provider 系统将 \",[\"$\",\"strong\",null,{\"children\":\"15+ LLM 提供商\"}],\"统一在同一个接口下。 但这不只是\\\"换个 API Key\\\"那么简单——每个 Provider 都有自己的\",[\"$\",\"strong\",null,{\"children\":\"消息格式怪癖、 Tool ID 限制、缓存机制、认证方式\"}],\"。Provider 层的核心工作就是抹平这些差异。\"]}],[\"$\",\"h2\",null,{\"children\":\"架构全景图\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$8\"}]}],\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\",\"$L15\",\"$L16\",\"$L17\",\"$L18\",\"$L19\",\"$L1a\",\"$L1b\",\"$L1c\",\"$L1d\",\"$L1e\",\"$L1f\"]}],null,\"$L20\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L21\",false]],\"m\":\"$undefined\",\"G\":[\"$22\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"2b:I[1474,[],\"OutletBoundary\"]\n2d:I[9783,[],\"AsyncMetadataOutlet\"]\n2f:I[1474,[],\"ViewportBoundary\"]\n31:I[1474,[],\"MetadataBoundary\"]\n32:\"$Sreact.suspense\"\n9:[\"$\",\"h2\",null,{\"children\":\"15+ Provider 全览\"}]\n23:T769,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────────┐\n  │  Provider                │  SDK Package                │ 特点   │\n  ├──────────────────────────┼───────────────────────────────┼───────┤\n  │  Anthropic               │  @ai-sdk/anthropic           │ 主力   │\n  │  OpenAI                  │  @ai-sdk/openai              │ GPT系  │\n  │  Google Gemini           │  @ai-sdk/google              │ 2.5Pro │\n  │  Azure OpenAI            │  @ai-sdk/azure               │ 企业   │\n  │  Vertex AI (Gemini)      │  @ai-sdk/google-vertex       │ GCP   │\n  │  Vertex AI (Anthropic)   │  @ai-sdk/google-vertex/anth  │ GCP   │\n  │  Amazon Bedrock          │  @ai-sdk/amazon-bedrock      │ AWS   │\n  │  OpenRouter              │  @openrouter/ai-sdk-provider │ 聚合   │\n  │  xAI                     │  @ai-sdk/xai                 │ Grok  │\n  │  Mistral                 │  @ai-sdk/mistral             │ EU    │\n  │  Groq                    │  @ai-sdk/groq                │ 快速   │\n  │  DeepInfra               │  @ai-sdk/deepinfra           │ 开源   │\n  │  Cerebras                │  @ai-sdk/cerebras            │ 超快   │\n  │  Cohere                  │  @ai-sdk/cohere              │ RAG   │\n  │  GitHub Copilot          │  自定义 SDK                   │ 特殊   │\n  └──────────────────────────┴───────────────────────────────┴───────┘\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$23\"}]}]\nb:[\"$\",\"h2\",null,{\"children\":\"Model 数据结构 — 完整字段\"}]\n24:T5fc,"])</script><script>self.__next_f.push([1,"type Provider.Model = {\n  // ═══════ 标识 ═══════\n  id: string              // 内部 ID e.g. \"claude-opus-4\"\n  providerID: string      // Provider ID e.g. \"anthropic\"\n\n  api: {\n    npm: string           // SDK 包名 e.g. \"@ai-sdk/anthropic\"\n    id: string            // API 模型 ID e.g. \"claude-opus-4-20250514\"\n  }\n\n  // ═══════ 能力声明 ═══════\n  capabilities: {\n    temperature: boolean  // 支持 temperature 参数?\n    reasoning: boolean    // 支持 extended thinking?\n    vision: boolean       // 支持图片输入?\n    output_format: boolean // 支持结构化输出 (JSON schema)?\n    computer_use: boolean // 支持计算机使用?\n  }\n\n  // ═══════ 上下文限制 ═══════\n  limit: {\n    context: number       // 总上下文窗口 e.g. 200000\n    input?: number        // 最大输入 token (可选, 某些 Provider 分别限制)\n    output: number        // 最大输出 token e.g. 16384\n  }\n\n  // ═══════ 成本追踪 ═══════\n  cost?: {\n    input: number         // 每百万 input token 美元 e.g. 15.0\n    output: number        // 每百万 output token 美元 e.g. 75.0\n    cache: number         // 缓存读取价格 e.g. 1.5\n  }\n\n  // ═══════ Provider 特定 ═══════\n  options?: Record\u003cstring, any\u003e       // e.g. { thinking: { budget: 10000 } }\n  variants?: Record\u003cstring, Variant\u003e  // 模型变体\n  headers?: Record\u003cstring, string\u003e    // 自定义请求头\n}"])</script><script>self.__next_f.push([1,"c:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$24\"}]}]\nd:[\"$\",\"h2\",null,{\"children\":\"Provider 初始化流程\"}]\n25:T787,"])</script><script>self.__next_f.push([1,"\n  配置加载                   SDK 创建                    实际使用\n  ─────────                  ─────────                   ─────────\n\n  opencode.json              Provider Registry            LLM.stream()\n  ┌──────────┐               ┌──────────────┐             ┌──────────┐\n  │ provider: │    解析       │ Provider Map │    查找     │ streamText│\n  │  anthropic│──────────────►│  anthropic:  │────────────►│  model:  │\n  │    api_key│               │    create()  │             │  langMdl │\n  │    base_url               │    loader    │             └──────────┘\n  │  openai:  │               │  openai:     │\n  │    api_key│               │    create()  │\n  └──────────┘               └──────────────┘\n\n  // 详细的 Provider 创建流程:\n  function createProvider(providerID, config) {\n\n    // ★ 第 1 步: 解析 API Key\n    // 优先级: 环境变量 \u003e 配置文件 \u003e 插件 auth hook\n    const apiKey = process.env.ANTHROPIC_API_KEY\n                ?? config.api_key\n                ?? await Plugin.auth({ provider: providerID })\n\n    // ★ 第 2 步: 创建 SDK 实例\n    const sdkCreate = await import(config.npm ?? defaultNpm)\n    // e.g. import { createAnthropic } from \"@ai-sdk/anthropic\"\n\n    const provider = sdkCreate({\n      apiKey,\n      baseURL: config.base_url,\n      headers: {\n        ...config.headers,\n        // ★ OpenCode 自定义 header\n        \"x-opencode-version\": VERSION,\n      },\n    })\n\n    // ★ 第 3 步: 获取 LanguageModel\n    return provider.languageModel(model.api.id)\n    // e.g. provider.languageModel(\"claude-opus-4-20250514\")\n  }\n"])</script><script>self.__next_f.push([1,"e:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$25\"}]}]\nf:[\"$\",\"h2\",null,{\"children\":\"消息规范化 — Provider 的怪癖们\"}]\n10:[\"$\",\"p\",null,{\"children\":[\"你可能以为\\\"统一接口\\\"意味着各 Provider API 格式相同。 实际上每家都有自己的\",[\"$\",\"strong\",null,{\"children\":\"限制和怪癖\"}],\"：\"]}]\n26:T10da,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────────┐\n  │  ProviderTransform.message()  — 消息规范化流水线                 │\n  │                                                                 │\n  │  输入: 统一的 CoreMessage[]                                      │\n  │                                                                 │\n  │  ┌──────────────────────────────────────────────────────────┐   │\n  │  │ 1. Anthropic 规范化                                      │   │\n  │  │    ✕ 空文本 Part → 过滤掉                                │   │\n  │  │    ✕ 空推理 Part → 过滤掉                                │   │\n  │  │    ✕ 空消息 → 整条删除                                   │   │\n  │  │    → Anthropic API 对空内容返回 400 错误                  │   │\n  │  └──────────────────────────────────────────────────────────┘   │\n  │                         │                                       │\n  │                         ▼                                       │\n  │  ┌──────────────────────────────────────────────────────────┐   │\n  │  │ 2. Claude Tool ID 清洗                                   │   │\n  │  │    toolCallId.replace(/[^a-zA-Z0-9_-]/g, \"_\")           │   │\n  │  │    \"call_abc+123\" → \"call_abc_123\"                      │   │\n  │  │    → Claude 只接受 [a-zA-Z0-9_-] 字符                    │   │\n  │  └──────────────────────────────────────────────────────────┘   │\n  │                         │                                       │\n  │                         ▼                                       │\n  │  ┌──────────────────────────────────────────────────────────┐   │\n  │  │ 3. Mistral 特殊处理                                      │   │\n  │  │    ① Tool ID 截断为 9 字符: \"abcdefghij\" → \"abcdefghi\"  │   │\n  │  │    ② 不足 9 字符补 0: \"abc\" → \"abc000000\"               │   │\n  │  │    ③ tool message 后不能直接跟 user message              │   │\n  │  │       → 插入 { role: \"assistant\", content: \"Done.\" }    │   │\n  │  └──────────────────────────────────────────────────────────┘   │\n  │                         │                                       │\n  │                         ▼                                       │\n  │  ┌──────────────────────────────────────────────────────────┐   │\n  │  │ 4. 缓存标记注入 (applyCaching)                           │   │\n  │  │    对 system + 最后 2 条消息添加 Provider 特定缓存提示      │   │\n  │  └──────────────────────────────────────────────────────────┘   │\n  │                         │                                       │\n  │                         ▼                                       │\n  │  输出: Provider-specific CoreMessage[]                          │\n  └─────────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"11:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$26\"}]}]\n12:[\"$\",\"h3\",null,{\"children\":\"各 Provider 的 Tool ID 限制对比\"}]\n"])</script><script>self.__next_f.push([1,"13:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  Provider     Tool ID 限制                     处理方式\\n  ──────────────────────────────────────────────────────────\\n  Anthropic    [a-zA-Z0-9_-]                   替换非法字符为 _\\n  Claude       同上                             同上\\n  Mistral      恰好 9 个 [a-zA-Z0-9]           截断+补0\\n  OpenAI       无严格限制                       原样传递\\n  Gemini       无严格限制                       原样传递\\n  Bedrock      取决于底层模型                   按底层处理\\n\\n  示例:\\n  原始 ID:     \\\"toolu_01YFT9NsVzmWxkD7rvBY\\\"  (24字符, AI SDK 生成)\\n\\n  Anthropic:   \\\"toolu_01YFT9NsVzmWxkD7rvBY\\\"   ✓ 合法\\n  Mistral:     \\\"toolu01YF\\\"                      截断为 9 字符\\n  OpenAI:      \\\"toolu_01YFT9NsVzmWxkD7rvBY\\\"   原样\\n\"}]}]\n"])</script><script>self.__next_f.push([1,"14:[\"$\",\"h2\",null,{\"children\":\"缓存控制策略 — 省钱的关键\"}]\n27:Ta54,"])</script><script>self.__next_f.push([1,"\n  ═══════ 为什么要缓存? ═══════\n\n  不带缓存:\n    每次 LLM 调用: System Prompt (4000 tokens) + 历史消息 (10000 tokens)\n    = 14000 input tokens × $15/M = $0.21\n\n  带缓存:\n    首次: 14000 tokens → $0.21 + 缓存写入费\n    后续: 缓存命中 14000 tokens × $1.5/M = $0.021  ← 90% 折扣!\n\n  ═══════ 缓存标记策略 ═══════\n\n  对话消息数组:\n  ┌──────────────────────────────────────────────────┐\n  │ system[0]: Agent Prompt          ← 缓存标记 ★   │  不变的部分\n  │ system[1]: 环境信息 + 上下文     ← 不缓存       │  每次可能变\n  │──────────────────────────────────────────────────│\n  │ msg[0]: user \"开始项目...\"                       │\n  │ msg[1]: assistant \"好的...\"                      │\n  │ msg[2]: user \"修改登录...\"                       │\n  │ msg[3]: assistant \"我来看看...\"                   │  中间消息\n  │ ...                                              │  不标记缓存\n  │ msg[N-2]: user \"运行测试\"        ← 缓存标记 ★   │\n  │ msg[N-1]: assistant \"测试结果...\"  ← 缓存标记 ★  │  最后 2 条\n  └──────────────────────────────────────────────────┘\n\n  为什么只标记这几个?\n  - System Prompt: 每次调用完全相同 → 缓存命中率 100%\n  - 最后 2 条: 下一轮调用时大概率还在 → 缓存命中率高\n  - 中间消息: 不标记 → 避免缓存条目过多导致命中率下降\n\n  ═══════ 各 Provider 的缓存格式 ═══════\n\n  Anthropic:\n    providerOptions: { anthropic: { cacheControl: { type: \"ephemeral\" } } }\n\n  Bedrock:\n    providerOptions: { bedrock: { cachePoint: { type: \"default\" } } }\n\n  OpenRouter:\n    providerOptions: { openrouter: { cacheControl: { type: \"ephemeral\" } } }\n\n  Copilot:\n    providerOptions: { copilot: { copilot_cache_control: { type: \"ephemeral\" } } }\n\n  // ★ 统一封装:\n  const CACHE_OPTIONS = {\n    anthropic:        { cacheControl: { type: \"ephemeral\" } },\n    openrouter:       { cacheControl: { type: \"ephemeral\" } },\n    bedrock:          { cachePoint: { type: \"default\" } },\n    openaiCompatible: { cache_control: { type: \"ephemeral\" } },\n    copilot:          { copilot_cache_control: { type: \"ephemeral\" } },\n  }\n"])</script><script>self.__next_f.push([1,"15:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$27\"}]}]\n16:[\"$\",\"h2\",null,{\"children\":\"成本计算\"}]\n28:T9ff,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────┐\n  │  成本计算公式                                                │\n  │                                                             │\n  │  总成本 = input_cost + output_cost + cache_cost             │\n  │                                                             │\n  │  input_cost   = input_tokens   × (cost.input  / 1,000,000) │\n  │  output_cost  = output_tokens  × (cost.output / 1,000,000) │\n  │  reason_cost  = reason_tokens  × (cost.output / 1,000,000) │  ← 推理按 output 价\n  │  cache_read   = cache.read     × (cost.cache  / 1,000,000) │  ← 缓存价\n  │  cache_write  = cache.write    × (cost.input  / 1,000,000) │  ← 写入按 input 价\n  └─────────────────────────────────────────────────────────────┘\n\n  示例: Claude Opus 4 的一次调用\n\n  ┌───────────────────────────────────────┐\n  │  Token 明细:                          │\n  │    Input:    5,000 tokens             │\n  │    Output:   2,000 tokens             │\n  │    Reasoning:  500 tokens             │\n  │    Cache Read:3,000 tokens            │\n  │    Cache Write:1,000 tokens           │\n  │                                       │\n  │  价格 (Claude Opus 4):                │\n  │    Input:  $15.0 / M                  │\n  │    Output: $75.0 / M                  │\n  │    Cache:  $1.5 / M                   │\n  │                                       │\n  │  计算:                                │\n  │    5000 × 15/M   = $0.075  (input)    │\n  │    2000 × 75/M   = $0.150  (output)   │\n  │     500 × 75/M   = $0.0375 (reason)   │\n  │    3000 × 1.5/M  = $0.0045 (cache rd) │\n  │    1000 × 15/M   = $0.015  (cache wr) │\n  │                   ─────────           │\n  │    总计:           $0.282              │\n  └───────────────────────────────────────┘\n\n  // 成本累积到 AssistantMessage:\n  assistant.cost = 0.282\n  assistant.tokens = {\n    input: 5000, output: 2000,\n    reasoning: 500,\n    cache: { read: 3000, write: 1000 }\n  }\n"])</script><script>self.__next_f.push([1,"17:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$28\"}]}]\n18:[\"$\",\"h2\",null,{\"children\":\"工具结果中的媒体支持\"}]\n29:T79b,"])</script><script>self.__next_f.push([1,"\n  ═══════ 问题: 工具返回了图片, 哪些 Provider 能处理? ═══════\n\n  比如 Read 工具读取了 screenshot.png, 返回 Base64 图片附件。\n  但不是所有 Provider 都支持在 tool_result 中放图片:\n\n  ┌──────────────────────────┬─────────────────────────┐\n  │  Provider                │  tool_result 中的媒体    │\n  ├──────────────────────────┼─────────────────────────┤\n  │  Anthropic               │  ✓ 支持                 │\n  │  OpenAI                  │  ✓ 支持                 │\n  │  Amazon Bedrock          │  ✓ 支持                 │\n  │  Vertex (Anthropic)      │  ✓ 支持                 │\n  │  Google Gemini 3.x       │  ✓ 支持                 │\n  │  Google Gemini 2.x       │  ✕ 不支持               │\n  │  Mistral                 │  ✕ 不支持               │\n  │  其他                    │  ✕ 不支持               │\n  └──────────────────────────┴─────────────────────────┘\n\n  ═══════ 不支持时的处理方式 ═══════\n\n  不支持媒体的 Provider:\n    tool_result 中的图片被提取出来 → 作为单独的 user message 注入\n\n  原始消息:\n    assistant: tool_call(read, screenshot.png)\n    tool:      { output: \"...\", attachments: [image.png] }\n\n  转换后 (不支持媒体的 Provider):\n    assistant: tool_call(read, screenshot.png)\n    tool:      { output: \"...\" }                          ← 移除图片\n    user:      \"Attached image(s) from tool result:\"      ← 新增消息\n               [image: screenshot.png]\n"])</script><script>self.__next_f.push([1,"19:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$29\"}]}]\n1a:[\"$\",\"h2\",null,{\"children\":\"自定义 Provider 配置\"}]\n"])</script><script>self.__next_f.push([1,"1b:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// opencode.json — 三种常见场景\\n\\n// ═══════ 场景 1: 官方 Provider (最简) ═══════\\n{\\n  \\\"provider\\\": {\\n    \\\"anthropic\\\": {\\n      \\\"api_key\\\": \\\"sk-ant-...\\\"     // 或用 ANTHROPIC_API_KEY 环境变量\\n    }\\n  }\\n}\\n\\n// ═══════ 场景 2: OpenAI 兼容的本地/私有部署 ═══════\\n{\\n  \\\"provider\\\": {\\n    \\\"my-ollama\\\": {\\n      \\\"api_key\\\": \\\"none\\\",\\n      \\\"base_url\\\": \\\"http://localhost:11434/v1\\\",\\n      \\\"npm\\\": \\\"@ai-sdk/openai\\\"     // 使用 OpenAI SDK\\n    }\\n  },\\n  \\\"model\\\": {\\n    \\\"my-llama\\\": {\\n      \\\"provider\\\": \\\"my-ollama\\\",\\n      \\\"id\\\": \\\"llama3:70b\\\",\\n      \\\"context_window\\\": 128000,\\n      \\\"max_output_tokens\\\": 4096,\\n      \\\"cost\\\": { \\\"input\\\": 0, \\\"output\\\": 0, \\\"cache\\\": 0 }\\n    }\\n  }\\n}\\n\\n// ═══════ 场景 3: 企业 Azure 部署 ═══════\\n{\\n  \\\"provider\\\": {\\n    \\\"azure\\\": {\\n      \\\"api_key\\\": \\\"...\\\",\\n      \\\"base_url\\\": \\\"https://my-deployment.openai.azure.com\\\",\\n      \\\"api_version\\\": \\\"2024-02-15-preview\\\"\\n    }\\n  }\\n}\"}]}]\n"])</script><script>self.__next_f.push([1,"1c:[\"$\",\"h2\",null,{\"children\":\"Provider 选择流程\"}]\n2a:Tea9,"])</script><script>self.__next_f.push([1,"\n  用户指定 \"anthropic/claude-opus-4\"\n       │\n       ▼\n  ┌──────────────────────────────────────────────┐\n  │  解析: providerID = \"anthropic\"              │\n  │         modelID = \"claude-opus-4\"            │\n  └──────────────────┬───────────────────────────┘\n                     │\n                     ▼\n  ┌──────────────────────────────────────────────┐\n  │  查找 Provider 定义:                          │\n  │                                              │\n  │  1. 内置 Provider? (15+ 内置)                │\n  │     → 已有 npm 包名、模型列表、默认配置       │\n  │                                              │\n  │  2. 配置中的自定义 Provider?                  │\n  │     → 读取 config.provider[\"my-ollama\"]      │\n  │                                              │\n  │  3. 都没有? → 错误                           │\n  └──────────────────┬───────────────────────────┘\n                     │\n                     ▼\n  ┌──────────────────────────────────────────────┐\n  │  查找 Model 定义:                             │\n  │                                              │\n  │  1. 内置模型? (每个 Provider 有预定义模型)    │\n  │     → 已有 context_window、cost、capabilities │\n  │                                              │\n  │  2. 配置中的自定义模型?                       │\n  │     → 读取 config.model[\"my-llama\"]          │\n  │     → 合并默认值                              │\n  │                                              │\n  │  3. 都没有? → 使用 Provider 的默认模型        │\n  └──────────────────┬───────────────────────────┘\n                     │\n                     ▼\n  ┌──────────────────────────────────────────────┐\n  │  获取 API Key:                                │\n  │                                              │\n  │  环境变量 (ANTHROPIC_API_KEY)                 │\n  │       ↓ 没有                                  │\n  │  配置文件 (config.provider.anthropic.api_key) │\n  │       ↓ 没有                                  │\n  │  Plugin auth hook (Plugin.auth())            │\n  │       ↓ 没有                                  │\n  │  错误: \"No API key found\"                    │\n  └──────────────────┬───────────────────────────┘\n                     │\n                     ▼\n  ┌──────────────────────────────────────────────┐\n  │  创建 AI SDK Provider 实例                    │\n  │  → import(npm).create({ apiKey, baseURL })   │\n  │  → provider.languageModel(model.api.id)      │\n  │  → wrapLanguageModel({ middleware })          │\n  └──────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"1d:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2a\"}]}]\n1e:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n"])</script><script>self.__next_f.push([1,"1f:[\"$\",\"ul\",null,{\"children\":[[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"AI SDK 统一层是核心\"}],\" — Vercel AI SDK 提供了统一的 streamText 接口， 但 OpenCode 在此之上加了 middleware（消息变换）和 Provider 特定处理， 处理了 AI SDK 没有覆盖的差异。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"消息规范化处理了 Provider 的怪癖\"}],\" — Anthropic 拒绝空消息、 Claude 限制 Tool ID 字符、Mistral 要求 9 字符 ID + 不允许 tool→user 连续。 这些都是实战中发现的问题，不看源码你不会知道。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"缓存策略直接影响成本\"}],\" — 合理的缓存标记可以将 API 费用降低 50-90%。 System Prompt + 最后 2 条消息的策略平衡了命中率和缓存条目数。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"成本透明\"}],\" — 每次调用精确计算到 token 级别的费用， 用户可以看到每条消息、每个步骤的花费。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"零代码切换模型\"}],\" — 只需改 config 中的 default_model， 所有 Provider 的差异由框架自动处理。\"]}]]}]\n"])</script><script>self.__next_f.push([1,"20:[\"$\",\"$L2b\",null,{\"children\":[\"$L2c\",[\"$\",\"$L2d\",null,{\"promise\":\"$@2e\"}]]}]\n21:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L2f\",null,{\"children\":\"$L30\"}],null],[\"$\",\"$L31\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$32\",null,{\"fallback\":null,\"children\":\"$L33\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"30:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n2c:null\n"])</script><script>self.__next_f.push([1,"2e:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"33:\"$2e:metadata\"\n"])</script></body></html>

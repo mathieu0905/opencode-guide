@@ -1,0 +1,196 @@
+<!DOCTYPE html><!--bye4CeShaPMDcn_ypi8Us--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-103dca6b3bf7cb84.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Session 会话系统</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/session/index.ts</code> (877 行)</p><h2>概述</h2><p>Session 是 OpenCode 的<strong>顶层组织单元</strong>。 你可以把它类比为 ChatGPT 左侧栏的一条对话记录，但 OpenCode 的 Session 功能更强大—— 它支持 Fork（从任意消息点分叉）、共享（生成公开链接）、归档和文件回滚。</p><p>每个 Session 关联到一个 <strong>Project</strong>（Git 仓库）和一个 <strong>Directory</strong>（工作目录）。 Session 内部包含多条 Message，每条 Message 又包含多个 Part。 这种三层结构（Session → Message → Part）是 OpenCode 数据模型的骨架。</p><h2>Session 数据结构</h2><p>下面是完整的 Session 类型定义，每个字段都有详细说明：</p><pre><code>type Session = {
+  // ===== 标识符 =====
+  id: string
+  // 降序 ULID — 越新创建的 Session，ID 越小 (字典序)
+  // 这样 ORDER BY id ASC 就能得到时间倒序
+  // 为什么用降序？大部分查询需要「最新的在前」
+
+  slug: string
+  // URL 友好的短标识，如 &quot;fix-login-bug&quot;
+
+  projectID: string
+  // 关联的 Project ID
+  // 来自 Git 仓库的第一个 root commit hash
+  // 同一个仓库的不同 clone 共享同一个 projectID
+
+  directory: string
+  // 工作目录的绝对路径
+
+  parentID?: string
+  // 父 Session 的 ID（仅 Fork 产生的子 Session 有值）
+  // 形成树结构: 父 → 子 → 子子
+
+  // ===== 展示信息 =====
+  title: string        // AI 自动生成的标题
+  version: string      // 版本标记
+
+  // ===== 时间戳 =====
+  time: {
+    created: number     // 创建时间 (Unix ms)
+    updated: number     // 最后更新时间
+    compacting?: number // 非 null = 正在压缩上下文
+    archived?: number   // 非 null = 已归档
+  }
+
+  // ===== 可选功能 =====
+  summary?: {
+    additions: number   // 新增行数
+    deletions: number   // 删除行数
+    files: number       // 变更文件数
+    diffs?: FileDiff[]  // 详细 diff 列表
+  }
+  // 记录这个 Session 对项目做了哪些文件变更
+
+  share?: { url: string }       // 共享链接
+  permission?: PermissionRuleset // Session 级权限覆盖
+  revert?: {                     // 文件回滚状态
+    messageID: string
+    partID?: string
+    snapshot?: string
+    diff?: string
+  }
+}</code></pre><h2>Session 完整生命周期</h2><pre><code>                    ┌─────────────────────┐
+                    │    创建 (create)     │
+                    │  POST /session       │
+                    └──────────┬──────────┘
+                               │
+          生成 ID (降序 ULID) + slug
+          关联 project + directory
+          Bus.publish(&quot;session.created&quot;)
+                               │
+                               ▼
+                    ┌─────────────────────┐
+              ┌────►│    活跃 (active)     │◄────────────────┐
+              │     └──┬──┬──┬──┬──┬─────┘                  │
+              │        │  │  │  │  │                        │
+              │        │  │  │  │  └── 发送消息 (prompt)     │
+              │        │  │  │  └──── 上下文压缩 (compact)   │
+              │        │  │  └────── 文件回滚 (revert)       │
+              │        │  └──────── 共享 (share/unshare)     │
+              │        └────────── Fork (分叉)               │
+              │                      │                      │
+              │                      ▼                      │
+              │              ┌──────────────┐               │
+              │              │ 子 Session    │───────────────┘
+              │              │ (独立演化)    │
+              │              └──────────────┘
+              │
+              │  (取消归档)
+              ▼
+   ┌─────────────────────┐         ┌─────────────────────┐
+   │   归档 (archived)    │────────►│    删除 (removed)    │
+   │  time.archived=now   │         │  级联删除:           │
+   └─────────────────────┘         │  Session → Messages  │
+                                   │  → Parts → 子Session │
+                                   └─────────────────────┘</code></pre><h2>核心操作详解</h2><h3>1. 创建会话</h3><pre><code>// HTTP: POST /session
+// SDK:  sdk.session.create({ title?, parentID?, permission? })
+// 源码: session/index.ts → create()
+
+async function create(input?) {
+  // 第一步: 生成降序 ID
+  // 降序 ULID: 时间越新, ID 字典序越小
+  // 好处: ORDER BY id = 时间倒序, 查最新的不需要 DESC
+  const id = descending()
+
+  // 第二步: 生成 slug (URL 友好)
+  const slug = generateSlug()
+
+  // 第三步: 获取当前项目信息
+  const project = Instance.project  // Git 仓库信息
+  const directory = Instance.directory
+
+  // 第四步: 写入数据库
+  db.insert(SessionTable).values({
+    id, slug,
+    project_id: project.id,
+    directory,
+    title: input?.title ?? &quot;&quot;,
+    parent_id: input?.parentID,
+    permission: input?.permission,
+    time_created: Date.now(),
+    time_updated: Date.now(),
+  })
+
+  // 第五步: 自动共享 (如果配置了 share: &quot;auto&quot;)
+  if (config.share === &quot;auto&quot;) {
+    await share(id)
+  }
+
+  // 第六步: 广播事件
+  // ★ 在 Database.effect() 中执行 → 数据库事务提交后才广播
+  // 防止: 前端收到事件后查询数据库, 但数据还没写入
+  Bus.publish(Event.Created, { info: session })
+
+  return session
+}</code></pre><h3>2. Fork 会话 — 从历史分叉</h3><p>想象你和 AI 对话了 10 轮，第 5 轮的回答不理想，你想从第 4 轮重新开始—— 这就是 Fork。它创建一个新 Session，复制前 4 轮的消息，你在新 Session 中继续。</p><pre><code>// HTTP: POST /session/{id}/fork
+async function fork(sessionID, messageID, options?) {
+  // 1. 创建子 Session (parentID 指向原 Session)
+  const child = await create({ parentID: sessionID })
+
+  // 2. 复制消息 (直到 messageID)
+  const allMessages = await messages(sessionID)
+  for (const msg of allMessages) {
+    if (msg.info.id &gt; messageID) break  // ID 降序, 大 = 更早
+    // 复制 Message + Parts 到子 Session
+    insert(child.id, msg)
+  }
+
+  // 3. 可选: 恢复文件状态到 Fork 点
+  if (options?.revert) {
+    await Snapshot.restore(snapshotHash)
+  }
+
+  return child
+}
+
+// Fork 后的数据关系:
+// 原 Session:  Msg1 → Msg2 → Msg3 → Msg4(Fork点) → Msg5 → Msg6
+// 子 Session:  Msg1&#x27;→ Msg2&#x27;→ Msg3&#x27;→ Msg4&#x27;→ (用户继续新对话)</code></pre><h3>3. 获取消息列表</h3><pre><code>// HTTP: GET /session/{id}/message
+// SDK:  sdk.session.messages({ sessionID })
+
+// 返回结构 — 每条消息附带它的所有 Part:
+type Response = Array&lt;{
+  info: Message        // UserMessage 或 AssistantMessage
+  parts: Array&lt;Part&gt;   // 该消息的所有 Part (text, tool, reasoning...)
+}&gt;
+
+// 这就是为什么前端的 messageStore 需要两个 Map:
+// messages: Record&lt;sessionID, Message[]&gt;
+// parts: Record&lt;messageID, Part[]&gt;</code></pre><h2>数据库 Schema</h2><pre><code>SessionTable = sqliteTable(&quot;session&quot;, {
+  id:                text(&quot;id&quot;).primaryKey(),
+  project_id:        text(&quot;project_id&quot;).references(() =&gt; ProjectTable.id),
+  parent_id:         text(&quot;parent_id&quot;),  // 自引用: Fork 树
+  slug:              text(&quot;slug&quot;).notNull(),
+  directory:         text(&quot;directory&quot;).notNull(),
+  title:             text(&quot;title&quot;).notNull().default(&quot;&quot;),
+  version:           text(&quot;version&quot;).notNull().default(&quot;&quot;),
+  share_url:         text(&quot;share_url&quot;),
+  summary_additions: integer(&quot;summary_additions&quot;),
+  summary_deletions: integer(&quot;summary_deletions&quot;),
+  summary_files:     integer(&quot;summary_files&quot;),
+  summary_diffs:     text(&quot;summary_diffs&quot;, { mode: &quot;json&quot; }),
+  revert:            text(&quot;revert&quot;, { mode: &quot;json&quot; }),
+  permission:        text(&quot;permission&quot;, { mode: &quot;json&quot; }),
+  time_created:      integer(&quot;time_created&quot;),
+  time_updated:      integer(&quot;time_updated&quot;),
+  time_compacting:   integer(&quot;time_compacting&quot;),
+  time_archived:     integer(&quot;time_archived&quot;),
+})</code></pre><h2>关联的 Bus 事件</h2><table><thead><tr><th>事件</th><th>何时触发</th><th>Payload</th><th>前端消费</th></tr></thead><tbody><tr><td><code>session.created</code></td><td>创建会话 (含 Fork)</td><td><code>{ info: Session }</code></td><td>addSession()</td></tr><tr><td><code>session.updated</code></td><td>标题/权限/归档变更</td><td><code>{ info: Session }</code></td><td>updateSession()</td></tr><tr><td><code>session.deleted</code></td><td>删除</td><td><code>{ info: Session }</code></td><td>removeSession()</td></tr><tr><td><code>session.diff</code></td><td>Agent 产生文件变更</td><td><code>{ diffs: FileDiff[] }</code></td><td>更新 summary</td></tr><tr><td><code>session.status</code></td><td>忙碌/空闲变化</td><td><code>{ status }</code></td><td>loading 状态</td></tr><tr><td><code>session.idle</code></td><td>Agent 循环结束</td><td><code>{ sessionID }</code></td><td>停止 loading</td></tr></tbody></table><h2>子 Session 与状态持久化</h2><p>当 LLM 调用 Task 工具时，会创建一个<strong>子 Session</strong>—— 它是数据库里一条独立的 Session 记录，<code>parentID</code> 指向父 Session。 子 Session 有自己的消息流，独立于父 Session。</p><p>这个设计在<strong>进程崩溃恢复</strong>时至关重要。 Session、Message、Part 都持久化在 SQLite 中，进程重启后完好无损。 但 <code>SessionStatus</code>（busy/idle）是纯内存状态：</p><pre><code>// status.ts — 纯内存，不持久化
+const state = Instance.state(() =&gt; {
+  const data: Record&lt;string, Info&gt; = {}
+  return data
+})
+
+export function get(sessionID: string) {
+  return state()[sessionID] ?? { type: &quot;idle&quot; }
+  //                            ^^^^^^^^^^^^^^^^
+  //                            不在 Map 里 = idle
+}
+
+// 进程崩溃前: &quot;session_123&quot; → { type: &quot;busy&quot; }
+// 进程重启后: Map 是空的 → 所有 session 默认 &quot;idle&quot;
+// → 不会出现&quot;永远 busy&quot;的 session</code></pre><p>为什么不持久化？因为 SessionStatus 反映的是<strong>当前进程的执行状态</strong>。 进程死了，就不存在&quot;正在执行&quot;的概念。让它自然回到 idle 是正确的行为。 更多恢复细节见 <a href="/guide/agent-loop">Agent 执行循环</a> 的&quot;崩溃恢复&quot;部分。</p><h2>设计要点</h2><h3>为什么用降序 ID？</h3><p>大部分 UI 需要「最新的会话在最前面」。降序 ULID 让默认排序就是时间倒序。 分页也更简单：<code>WHERE id <!-- -->&gt;<!-- --> cursor LIMIT 20</code> 就能取下一页。</p><h3>为什么 summary 存在 Session 上？</h3><p>这是 <strong>反规范化 (denormalization)</strong>——用冗余数据换取查询性能。 前端直接显示「+42 -17 3 files」而不需要遍历所有消息重新计算。 每次 Agent 产生文件变更时，summary 通过 <code>session.diff</code> 事件实时更新。</p><h3>级联删除的重要性</h3><p>SQLite 的 <code>ON DELETE CASCADE</code> 确保删除 Session 时自动清理所有关联数据 （Message → Part → Todo → SessionShare → 子 Session）。 没有这个机制，遗漏任何一步都会产生孤儿数据。</p></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"210\",\"static/chunks/app/guide/layout-103dca6b3bf7cb84.js\"],\"default\"]\n25:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n8:T615,"])</script><script>self.__next_f.push([1,"type Session = {\n  // ===== 标识符 =====\n  id: string\n  // 降序 ULID — 越新创建的 Session，ID 越小 (字典序)\n  // 这样 ORDER BY id ASC 就能得到时间倒序\n  // 为什么用降序？大部分查询需要「最新的在前」\n\n  slug: string\n  // URL 友好的短标识，如 \"fix-login-bug\"\n\n  projectID: string\n  // 关联的 Project ID\n  // 来自 Git 仓库的第一个 root commit hash\n  // 同一个仓库的不同 clone 共享同一个 projectID\n\n  directory: string\n  // 工作目录的绝对路径\n\n  parentID?: string\n  // 父 Session 的 ID（仅 Fork 产生的子 Session 有值）\n  // 形成树结构: 父 → 子 → 子子\n\n  // ===== 展示信息 =====\n  title: string        // AI 自动生成的标题\n  version: string      // 版本标记\n\n  // ===== 时间戳 =====\n  time: {\n    created: number     // 创建时间 (Unix ms)\n    updated: number     // 最后更新时间\n    compacting?: number // 非 null = 正在压缩上下文\n    archived?: number   // 非 null = 已归档\n  }\n\n  // ===== 可选功能 =====\n  summary?: {\n    additions: number   // 新增行数\n    deletions: number   // 删除行数\n    files: number       // 变更文件数\n    diffs?: FileDiff[]  // 详细 diff 列表\n  }\n  // 记录这个 Session 对项目做了哪些文件变更\n\n  share?: { url: string }       // 共享链接\n  permission?: PermissionRuleset // Session 级权限覆盖\n  revert?: {                     // 文件回滚状态\n    messageID: string\n    partID?: string\n    snapshot?: string\n    diff?: string\n  }\n}"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"bye4CeShaPMDcn-ypi8Us\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"session\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"session\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"session\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Session 会话系统\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/session/index.ts\"}],\" (877 行)\"]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"Session 是 OpenCode 的\",[\"$\",\"strong\",null,{\"children\":\"顶层组织单元\"}],\"。 你可以把它类比为 ChatGPT 左侧栏的一条对话记录，但 OpenCode 的 Session 功能更强大—— 它支持 Fork（从任意消息点分叉）、共享（生成公开链接）、归档和文件回滚。\"]}],[\"$\",\"p\",null,{\"children\":[\"每个 Session 关联到一个 \",[\"$\",\"strong\",null,{\"children\":\"Project\"}],\"（Git 仓库）和一个 \",[\"$\",\"strong\",null,{\"children\":\"Directory\"}],\"（工作目录）。 Session 内部包含多条 Message，每条 Message 又包含多个 Part。 这种三层结构（Session → Message → Part）是 OpenCode 数据模型的骨架。\"]}],[\"$\",\"h2\",null,{\"children\":\"Session 数据结构\"}],[\"$\",\"p\",null,{\"children\":\"下面是完整的 Session 类型定义，每个字段都有详细说明：\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$8\"}]}],\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\",\"$L15\",\"$L16\",\"$L17\",\"$L18\",\"$L19\",\"$L1a\",\"$L1b\",\"$L1c\",\"$L1d\",\"$L1e\",\"$L1f\",\"$L20\",\"$L21\",\"$L22\"]}],null,\"$L23\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L24\",false]],\"m\":\"$undefined\",\"G\":[\"$25\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"27:I[1474,[],\"OutletBoundary\"]\n29:I[9783,[],\"AsyncMetadataOutlet\"]\n2b:I[1474,[],\"ViewportBoundary\"]\n2d:I[1474,[],\"MetadataBoundary\"]\n2e:\"$Sreact.suspense\"\n9:[\"$\",\"h2\",null,{\"children\":\"Session 完整生命周期\"}]\n26:T9b2,"])</script><script>self.__next_f.push([1,"                    ┌─────────────────────┐\n                    │    创建 (create)     │\n                    │  POST /session       │\n                    └──────────┬──────────┘\n                               │\n          生成 ID (降序 ULID) + slug\n          关联 project + directory\n          Bus.publish(\"session.created\")\n                               │\n                               ▼\n                    ┌─────────────────────┐\n              ┌────►│    活跃 (active)     │◄────────────────┐\n              │     └──┬──┬──┬──┬──┬─────┘                  │\n              │        │  │  │  │  │                        │\n              │        │  │  │  │  └── 发送消息 (prompt)     │\n              │        │  │  │  └──── 上下文压缩 (compact)   │\n              │        │  │  └────── 文件回滚 (revert)       │\n              │        │  └──────── 共享 (share/unshare)     │\n              │        └────────── Fork (分叉)               │\n              │                      │                      │\n              │                      ▼                      │\n              │              ┌──────────────┐               │\n              │              │ 子 Session    │───────────────┘\n              │              │ (独立演化)    │\n              │              └──────────────┘\n              │\n              │  (取消归档)\n              ▼\n   ┌─────────────────────┐         ┌─────────────────────┐\n   │   归档 (archived)    │────────►│    删除 (removed)    │\n   │  time.archived=now   │         │  级联删除:           │\n   └─────────────────────┘         │  Session → Messages  │\n                                   │  → Parts → 子Session │\n                                   └─────────────────────┘"])</script><script>self.__next_f.push([1,"a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$26\"}]}]\nb:[\"$\",\"h2\",null,{\"children\":\"核心操作详解\"}]\nc:[\"$\",\"h3\",null,{\"children\":\"1. 创建会话\"}]\n"])</script><script>self.__next_f.push([1,"d:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// HTTP: POST /session\\n// SDK:  sdk.session.create({ title?, parentID?, permission? })\\n// 源码: session/index.ts → create()\\n\\nasync function create(input?) {\\n  // 第一步: 生成降序 ID\\n  // 降序 ULID: 时间越新, ID 字典序越小\\n  // 好处: ORDER BY id = 时间倒序, 查最新的不需要 DESC\\n  const id = descending()\\n\\n  // 第二步: 生成 slug (URL 友好)\\n  const slug = generateSlug()\\n\\n  // 第三步: 获取当前项目信息\\n  const project = Instance.project  // Git 仓库信息\\n  const directory = Instance.directory\\n\\n  // 第四步: 写入数据库\\n  db.insert(SessionTable).values({\\n    id, slug,\\n    project_id: project.id,\\n    directory,\\n    title: input?.title ?? \\\"\\\",\\n    parent_id: input?.parentID,\\n    permission: input?.permission,\\n    time_created: Date.now(),\\n    time_updated: Date.now(),\\n  })\\n\\n  // 第五步: 自动共享 (如果配置了 share: \\\"auto\\\")\\n  if (config.share === \\\"auto\\\") {\\n    await share(id)\\n  }\\n\\n  // 第六步: 广播事件\\n  // ★ 在 Database.effect() 中执行 → 数据库事务提交后才广播\\n  // 防止: 前端收到事件后查询数据库, 但数据还没写入\\n  Bus.publish(Event.Created, { info: session })\\n\\n  return session\\n}\"}]}]\n"])</script><script>self.__next_f.push([1,"e:[\"$\",\"h3\",null,{\"children\":\"2. Fork 会话 — 从历史分叉\"}]\nf:[\"$\",\"p\",null,{\"children\":\"想象你和 AI 对话了 10 轮，第 5 轮的回答不理想，你想从第 4 轮重新开始—— 这就是 Fork。它创建一个新 Session，复制前 4 轮的消息，你在新 Session 中继续。\"}]\n"])</script><script>self.__next_f.push([1,"10:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// HTTP: POST /session/{id}/fork\\nasync function fork(sessionID, messageID, options?) {\\n  // 1. 创建子 Session (parentID 指向原 Session)\\n  const child = await create({ parentID: sessionID })\\n\\n  // 2. 复制消息 (直到 messageID)\\n  const allMessages = await messages(sessionID)\\n  for (const msg of allMessages) {\\n    if (msg.info.id \u003e messageID) break  // ID 降序, 大 = 更早\\n    // 复制 Message + Parts 到子 Session\\n    insert(child.id, msg)\\n  }\\n\\n  // 3. 可选: 恢复文件状态到 Fork 点\\n  if (options?.revert) {\\n    await Snapshot.restore(snapshotHash)\\n  }\\n\\n  return child\\n}\\n\\n// Fork 后的数据关系:\\n// 原 Session:  Msg1 → Msg2 → Msg3 → Msg4(Fork点) → Msg5 → Msg6\\n// 子 Session:  Msg1'→ Msg2'→ Msg3'→ Msg4'→ (用户继续新对话)\"}]}]\n"])</script><script>self.__next_f.push([1,"11:[\"$\",\"h3\",null,{\"children\":\"3. 获取消息列表\"}]\n12:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// HTTP: GET /session/{id}/message\\n// SDK:  sdk.session.messages({ sessionID })\\n\\n// 返回结构 — 每条消息附带它的所有 Part:\\ntype Response = Array\u003c{\\n  info: Message        // UserMessage 或 AssistantMessage\\n  parts: Array\u003cPart\u003e   // 该消息的所有 Part (text, tool, reasoning...)\\n}\u003e\\n\\n// 这就是为什么前端的 messageStore 需要两个 Map:\\n// messages: Record\u003csessionID, Message[]\u003e\\n// parts: Record\u003cmessageID, Part[]\u003e\"}]}]\n13:[\"$\",\"h2\",null,{\"children\":\"数据库 Schema\"}]\n"])</script><script>self.__next_f.push([1,"14:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"SessionTable = sqliteTable(\\\"session\\\", {\\n  id:                text(\\\"id\\\").primaryKey(),\\n  project_id:        text(\\\"project_id\\\").references(() =\u003e ProjectTable.id),\\n  parent_id:         text(\\\"parent_id\\\"),  // 自引用: Fork 树\\n  slug:              text(\\\"slug\\\").notNull(),\\n  directory:         text(\\\"directory\\\").notNull(),\\n  title:             text(\\\"title\\\").notNull().default(\\\"\\\"),\\n  version:           text(\\\"version\\\").notNull().default(\\\"\\\"),\\n  share_url:         text(\\\"share_url\\\"),\\n  summary_additions: integer(\\\"summary_additions\\\"),\\n  summary_deletions: integer(\\\"summary_deletions\\\"),\\n  summary_files:     integer(\\\"summary_files\\\"),\\n  summary_diffs:     text(\\\"summary_diffs\\\", { mode: \\\"json\\\" }),\\n  revert:            text(\\\"revert\\\", { mode: \\\"json\\\" }),\\n  permission:        text(\\\"permission\\\", { mode: \\\"json\\\" }),\\n  time_created:      integer(\\\"time_created\\\"),\\n  time_updated:      integer(\\\"time_updated\\\"),\\n  time_compacting:   integer(\\\"time_compacting\\\"),\\n  time_archived:     integer(\\\"time_archived\\\"),\\n})\"}]}]\n"])</script><script>self.__next_f.push([1,"15:[\"$\",\"h2\",null,{\"children\":\"关联的 Bus 事件\"}]\n"])</script><script>self.__next_f.push([1,"16:[\"$\",\"table\",null,{\"children\":[[\"$\",\"thead\",null,{\"children\":[\"$\",\"tr\",null,{\"children\":[[\"$\",\"th\",null,{\"children\":\"事件\"}],[\"$\",\"th\",null,{\"children\":\"何时触发\"}],[\"$\",\"th\",null,{\"children\":\"Payload\"}],[\"$\",\"th\",null,{\"children\":\"前端消费\"}]]}]}],[\"$\",\"tbody\",null,{\"children\":[[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"session.created\"}]}],[\"$\",\"td\",null,{\"children\":\"创建会话 (含 Fork)\"}],[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"{ info: Session }\"}]}],[\"$\",\"td\",null,{\"children\":\"addSession()\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"session.updated\"}]}],[\"$\",\"td\",null,{\"children\":\"标题/权限/归档变更\"}],[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"{ info: Session }\"}]}],[\"$\",\"td\",null,{\"children\":\"updateSession()\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"session.deleted\"}]}],[\"$\",\"td\",null,{\"children\":\"删除\"}],[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"{ info: Session }\"}]}],[\"$\",\"td\",null,{\"children\":\"removeSession()\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"session.diff\"}]}],[\"$\",\"td\",null,{\"children\":\"Agent 产生文件变更\"}],[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"{ diffs: FileDiff[] }\"}]}],[\"$\",\"td\",null,{\"children\":\"更新 summary\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"session.status\"}]}],[\"$\",\"td\",null,{\"children\":\"忙碌/空闲变化\"}],[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"{ status }\"}]}],[\"$\",\"td\",null,{\"children\":\"loading 状态\"}]]}],[\"$\",\"tr\",null,{\"children\":[[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"session.idle\"}]}],[\"$\",\"td\",null,{\"children\":\"Agent 循环结束\"}],[\"$\",\"td\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"{ sessionID }\"}]}],[\"$\",\"td\",null,{\"children\":\"停止 loading\"}]]}]]}]]}]\n"])</script><script>self.__next_f.push([1,"17:[\"$\",\"h2\",null,{\"children\":\"子 Session 与状态持久化\"}]\n18:[\"$\",\"p\",null,{\"children\":[\"当 LLM 调用 Task 工具时，会创建一个\",[\"$\",\"strong\",null,{\"children\":\"子 Session\"}],\"—— 它是数据库里一条独立的 Session 记录，\",[\"$\",\"code\",null,{\"children\":\"parentID\"}],\" 指向父 Session。 子 Session 有自己的消息流，独立于父 Session。\"]}]\n19:[\"$\",\"p\",null,{\"children\":[\"这个设计在\",[\"$\",\"strong\",null,{\"children\":\"进程崩溃恢复\"}],\"时至关重要。 Session、Message、Part 都持久化在 SQLite 中，进程重启后完好无损。 但 \",[\"$\",\"code\",null,{\"children\":\"SessionStatus\"}],\"（busy/idle）是纯内存状态：\"]}]\n1a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// status.ts — 纯内存，不持久化\\nconst state = Instance.state(() =\u003e {\\n  const data: Record\u003cstring, Info\u003e = {}\\n  return data\\n})\\n\\nexport function get(sessionID: string) {\\n  return state()[sessionID] ?? { type: \\\"idle\\\" }\\n  //                            ^^^^^^^^^^^^^^^^\\n  //                            不在 Map 里 = idle\\n}\\n\\n// 进程崩溃前: \\\"session_123\\\" → { type: \\\"busy\\\" }\\n// 进程重启后: Map 是空的 → 所有 session 默认 \\\"idle\\\"\\n// → 不会出现\\\"永远 busy\\\"的 session\"}]}]\n1b:[\"$\",\"p\",null,{\"children\":[\"为什么不持久化？因为 SessionStatus 反映的是\",[\"$\",\"strong\",null,{\"children\":\"当前进程的执行状态\"}],\"。 进程死了，就不存在\\\"正在执行\\\"的概念。让它自然回到 idle 是正确的行为。 更多恢复细节见 \",[\"$\",\"a\",null,{\"href\":\"/guide/agent-loop\",\"children\":\"Agent 执行循环\"}],\" 的\\\"崩溃恢复\\\"部分。\"]}]\n1c:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n1d:[\"$\",\"h3\",null,{\"children\":\"为什么用降序 ID？\"}]\n1e:[\"$\",\"p\",null,{\"children\":[\"大部分 UI 需要「最新的会话在最前面」。降序 ULID 让默认排序就是时间倒序。 分页也更简单：\",[\"$\",\"code\",null,{\"children\":[\"WHERE id \",\"\u003e\",\" cursor LIMIT 20\"]}],\" 就能取下一页。\"]}]\n1f:[\"$\",\"h3\",null,{\"ch"])</script><script>self.__next_f.push([1,"ildren\":\"为什么 summary 存在 Session 上？\"}]\n20:[\"$\",\"p\",null,{\"children\":[\"这是 \",[\"$\",\"strong\",null,{\"children\":\"反规范化 (denormalization)\"}],\"——用冗余数据换取查询性能。 前端直接显示「+42 -17 3 files」而不需要遍历所有消息重新计算。 每次 Agent 产生文件变更时，summary 通过 \",[\"$\",\"code\",null,{\"children\":\"session.diff\"}],\" 事件实时更新。\"]}]\n21:[\"$\",\"h3\",null,{\"children\":\"级联删除的重要性\"}]\n22:[\"$\",\"p\",null,{\"children\":[\"SQLite 的 \",[\"$\",\"code\",null,{\"children\":\"ON DELETE CASCADE\"}],\" 确保删除 Session 时自动清理所有关联数据 （Message → Part → Todo → SessionShare → 子 Session）。 没有这个机制，遗漏任何一步都会产生孤儿数据。\"]}]\n23:[\"$\",\"$L27\",null,{\"children\":[\"$L28\",[\"$\",\"$L29\",null,{\"promise\":\"$@2a\"}]]}]\n24:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L2b\",null,{\"children\":\"$L2c\"}],null],[\"$\",\"$L2d\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$2e\",null,{\"fallback\":null,\"children\":\"$L2f\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"2c:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n28:null\n"])</script><script>self.__next_f.push([1,"2a:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"2f:\"$2a:metadata\"\n"])</script></body></html>

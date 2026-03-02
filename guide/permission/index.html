@@ -1,0 +1,289 @@
+<!DOCTYPE html><!--bye4CeShaPMDcn_ypi8Us--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-103dca6b3bf7cb84.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Permission 权限系统</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/permission/next.ts</code> (287 行)</p><h2>概述</h2><p>Permission 系统是 OpenCode 的安全核心——一个<strong>白名单模型</strong>。 默认行为是<strong>询问用户</strong>，只有被明确允许的操作才会静默执行。 每个工具在执行前都必须过权限检查，没有绕过后门。</p><h2>权限决策流程图</h2><pre><code>
+  工具调用: ctx.ask({ permission: &quot;edit&quot;, patterns: [&quot;src/app.ts&quot;] })
+       │
+       ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  第 1 步: 合并规则集 (优先级从高到低)                  │
+  │                                                      │
+  │  ┌────────────────┐                                  │
+  │  │ Session 权限    │  ← 最高优先级                    │
+  │  │ (Fork/子任务时) │     session.permission           │
+  │  └───────┬────────┘                                  │
+  │          │ merge                                     │
+  │  ┌───────▼────────┐                                  │
+  │  │ Agent 权限      │  ← Agent 定义中的限制            │
+  │  │ (子Agent限制)   │     agent.permission             │
+  │  └───────┬────────┘                                  │
+  │          │ merge                                     │
+  │  ┌───────▼────────┐                                  │
+  │  │ Config 权限     │  ← 用户配置 (opencode.json)     │
+  │  │ (全局配置)      │     config.permission            │
+  │  └───────┬────────┘                                  │
+  │          │ merge                                     │
+  │  ┌───────▼────────┐                                  │
+  │  │ 项目权限        │  ← &quot;Always&quot; 保存的规则          │
+  │  │ (数据库存储)    │     PermissionTable.data         │
+  │  └───────┬────────┘                                  │
+  │          ▼                                           │
+  │  最终合并规则集                                       │
+  └──────────────────┬───────────────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  第 2 步: 对每个 pattern 评估规则                      │
+  │                                                      │
+  │  permission = &quot;edit&quot;                                  │
+  │  pattern = &quot;src/app.ts&quot;                              │
+  │                                                      │
+  │  规则集:                                              │
+  │  {                                                   │
+  │    &quot;edit&quot;: {                                         │
+  │      &quot;*&quot;: &quot;allow&quot;,         ← 匹配! action = allow   │
+  │      &quot;.env*&quot;: &quot;deny&quot;,     ← 不匹配                  │
+  │      &quot;src/*.ts&quot;: &quot;allow&quot;  ← 匹配! action = allow    │
+  │    }                                   ↑              │
+  │  }                          最后匹配的胜出 ★          │
+  └──────────────────┬───────────────────────────────────┘
+                     │
+                     ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  第 3 步: 执行决策                                    │
+  │                                                      │
+  │        action                                        │
+  │       ╱    │    ╲                                    │
+  │      ▼     ▼     ▼                                   │
+  │   &quot;allow&quot; &quot;ask&quot; &quot;deny&quot;                               │
+  │      │     │     │                                   │
+  │      │     │     └──► throw DeniedError              │
+  │      │     │          → 工具跳过执行                  │
+  │      │     │          → LLM 看到 &quot;Permission denied&quot;  │
+  │      │     │                                         │
+  │      │     └──► Bus.publish(&quot;permission.asked&quot;)      │
+  │      │          → SSE → 前端弹出确认框               │
+  │      │          → Agent 循环暂停                      │
+  │      │          → 等待 &quot;permission.replied&quot; 事件      │
+  │      │                                               │
+  │      └──► 继续执行工具                                │
+  └──────────────────────────────────────────────────────┘
+</code></pre><h2>用户回复的三种选择</h2><pre><code>
+  ┌─────────────────────────────────────────────────────────────┐
+  │                                                             │
+  │   Allow edit src/app.ts?                                    │
+  │                                                             │
+  │   ┌──────────┐  ┌──────────────┐  ┌──────────┐            │
+  │   │   Once   │  │   Always ★   │  │  Reject  │            │
+  │   └────┬─────┘  └──────┬───────┘  └────┬─────┘            │
+  │        │               │               │                    │
+  └────────┼───────────────┼───────────────┼────────────────────┘
+           │               │               │
+           ▼               ▼               ▼
+
+     ┌──────────┐   ┌─────────────┐   ┌──────────────────┐
+     │ 仅本次    │   │ 永久允许     │   │ 拒绝             │
+     │ 允许执行  │   │ 允许执行     │   │ 停止执行          │
+     │          │   │ + 保存规则   │   │ + 标记 blocked    │
+     │ 不保存   │   │ 到数据库     │   │ + 终止循环        │
+     │ 规则     │   │              │   │                   │
+     └──────────┘   │ 同 Session   │   │ 取消该 Session    │
+                    │ 中相同权限    │   │ 所有待确认权限    │
+                    │ 自动放行     │   │                   │
+                    └─────────────┘   │ 用户可附带反馈:   │
+                                      │ &quot;请用另一种方式&quot;   │
+                                      │ → LLM 可据此调整  │
+                                      └──────────────────┘
+</code></pre><h2>权限交互完整时序图</h2><pre><code>
+  Agent Loop           Permission System          前端 UI            数据库
+      │                       │                      │                 │
+      │ tool-call: edit       │                      │                 │
+      │ ctx.ask({             │                      │                 │
+      │   permission:&quot;edit&quot;,  │                      │                 │
+      │   patterns:[&quot;app.ts&quot;],│                      │                 │
+      │   always:[&quot;*.ts&quot;]     │                      │                 │
+      │ })                    │                      │                 │
+      │──────────────────────►│                      │                 │
+      │                       │                      │                 │
+      │                  评估规则集                    │                 │
+      │                  action = &quot;ask&quot;               │                 │
+      │                       │                      │                 │
+      │                       │ permission.asked     │                 │
+      │                       │─────────────────────►│                 │
+      │                       │                      │                 │
+      │              (暂停)    │              ┌───────┴───────┐        │
+      │              等待...   │              │ Allow edit    │        │
+      │                       │              │ src/app.ts?   │        │
+      │                       │              │               │        │
+      │                       │              │ [Once][Always] │        │
+      │                       │              │      [No]     │        │
+      │                       │              └───────┬───────┘        │
+      │                       │                      │                 │
+      │                       │                 用户点击 &quot;Always&quot;      │
+      │                       │                      │                 │
+      │                       │ permission.replied   │                 │
+      │                       │◄─────────────────────│                 │
+      │                       │ { action: &quot;always&quot; } │                 │
+      │                       │                      │                 │
+      │                       │  保存 &quot;Always&quot; 规则   │                 │
+      │                       │──────────────────────┼────────────────►│
+      │                       │                      │    UPDATE       │
+      │                       │                      │    permission   │
+      │                       │                      │    SET data =   │
+      │                       │                      │    { edit:      │
+      │                       │                      │      {&quot;*.ts&quot;:   │
+      │                       │                      │       &quot;allow&quot;}} │
+      │  继续执行              │                      │                 │
+      │◄──────────────────────│                      │                 │
+      │                       │                      │                 │
+      │  EditTool.execute()   │                      │                 │
+      │                       │                      │                 │
+      │  ... 后续 edit(*.ts)  │                      │                 │
+      │  自动 allow (命中规则) │                      │                 │
+</code></pre><h2>权限规则结构</h2><pre><code>type PermissionRuleset = Record&lt;string, PermissionRule&gt;
+
+// PermissionRule 可以是:
+//   简单字符串: &quot;allow&quot; | &quot;ask&quot; | &quot;deny&quot;
+//   或模式对象: Record&lt;glob, &quot;allow&quot; | &quot;ask&quot; | &quot;deny&quot;&gt;
+
+// ═══════ 示例 ═══════
+
+{
+  // 简单规则 — 对整个权限类型生效
+  &quot;read&quot;: &quot;allow&quot;,              // 所有文件读取自动允许
+  &quot;bash&quot;: &quot;ask&quot;,                // 所有 bash 命令都要确认
+  &quot;webfetch&quot;: &quot;ask&quot;,            // 网络请求要确认
+
+  // 模式规则 — 通配符匹配
+  &quot;edit&quot;: {
+    &quot;*&quot;: &quot;allow&quot;,               // 默认允许编辑
+    &quot;.env*&quot;: &quot;deny&quot;,            // 禁止编辑 .env 文件
+    &quot;*.lock&quot;: &quot;ask&quot;,            // 锁文件需要确认
+    &quot;node_modules/**&quot;: &quot;deny&quot;,  // 禁止编辑 node_modules
+  },
+
+  // 外部目录
+  &quot;external_directory&quot;: {
+    &quot;*&quot;: &quot;ask&quot;,                 // 默认询问
+    &quot;/tmp/*&quot;: &quot;allow&quot;,          // 允许 /tmp
+    &quot;~/Desktop/*&quot;: &quot;deny&quot;,      // 禁止桌面
+  }
+}
+
+// ★ 评估顺序: 从上到下, 最后匹配的胜出
+// 这意味着: 更具体的规则放在后面, 可以覆盖通配符</code></pre><h2>通配符匹配</h2><pre><code>
+  支持的模式语法:
+
+  模式              匹配                    示例
+  ──────────────────────────────────────────────────────
+  &quot;*&quot;               任意字符串              一切
+  &quot;*.ts&quot;            以 .ts 结尾            app.ts, index.ts
+  &quot;src/*&quot;           src/ 直接子文件        src/app.ts
+  &quot;src/**&quot;          src/ 所有后代          src/a/b/c.ts
+  &quot;.env*&quot;           以 .env 开头           .env, .env.local
+  &quot;~/Desktop/*&quot;     Home 目录下            /Users/me/Desktop/x
+  &quot;npm *&quot;           npm 开头的命令         npm install, npm test
+  &quot;git checkout *&quot;  git checkout 命令      git checkout main
+
+  路径展开:
+  &quot;~/&quot;  → &quot;/Users/username/&quot;
+  相对路径 → 基于项目根目录解析为绝对路径
+</code></pre><h2>特殊权限类型</h2><pre><code>
+  ┌─────────────┬─────────────────────────────────────────────┐
+  │  权限类型    │  说明                                       │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  bash       │  Shell 命令执行                              │
+  │             │  pattern = 命令文本 (e.g. &quot;npm install&quot;)    │
+  │             │  always = BashArity 模式 (e.g. &quot;npm *&quot;)    │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  edit       │  文件编辑 (EditTool)                        │
+  │             │  pattern = 文件路径                          │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  write      │  文件创建 (WriteTool)                       │
+  │             │  pattern = 文件路径                          │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  read       │  文件读取 (ReadTool/GlobTool/GrepTool)     │
+  │             │  pattern = 文件路径                          │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  webfetch   │  网络请求 (WebFetchTool)                    │
+  │             │  pattern = URL                              │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  external_  │  访问项目外目录                              │
+  │  directory  │  pattern = 目录路径                          │
+  │             │  任何工具操作项目外路径时触发                 │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  doom_loop  │  死循环检测 (特殊)                           │
+  │             │  连续 3 次相同工具调用时触发                  │
+  │             │  用户决定: 继续 or 终止                      │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  task       │  创建子 Agent (TaskTool)                    │
+  │             │  pattern = 子 Agent 类型                     │
+  ├─────────────┼─────────────────────────────────────────────┤
+  │  MCP 工具名  │  MCP 外部工具                               │
+  │             │  pattern = &quot;*&quot; (MCP 工具权限粒度较粗)        │
+  └─────────────┴─────────────────────────────────────────────┘
+</code></pre><h2>错误类型</h2><pre><code>
+  权限系统的三种错误:
+
+  ┌────────────────────────────────────────────────────────────┐
+  │  RejectedError — 用户主动拒绝                               │
+  │                                                            │
+  │  触发: 用户在权限确认框点击 &quot;No&quot;                             │
+  │  效果:                                                     │
+  │    → Agent 循环终止 (blocked = true)                       │
+  │    → 取消该 Session 所有待确认权限                           │
+  │    → 用户可附带反馈文本 (&quot;请用另一种方式&quot;)                    │
+  │    → feedback 作为工具错误返回给 LLM                        │
+  └────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────────────────┐
+  │  CorrectedError — 用户拒绝但给了修正建议                    │
+  │                                                            │
+  │  触发: 用户修改了工具参数 (如修改文件路径)                   │
+  │  效果:                                                     │
+  │    → 工具执行被跳过 (但循环不终止)                          │
+  │    → LLM 看到错误信息 + 用户的修正建议                      │
+  │    → LLM 可以用修正后的参数重新调用工具                      │
+  └────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────────────────────────┐
+  │  DeniedError — 规则自动拒绝 (非交互)                        │
+  │                                                            │
+  │  触发: 规则集中匹配到 &quot;deny&quot;                                │
+  │  效果:                                                     │
+  │    → 工具执行被跳过 (不询问用户)                            │
+  │    → LLM 看到 &quot;Permission denied&quot; 错误                     │
+  │    → LLM 可以尝试其他方式                                   │
+  └────────────────────────────────────────────────────────────┘
+</code></pre><h2>&quot;Always&quot; 规则的传播</h2><pre><code>
+  用户点击 &quot;Always&quot; 时发生了什么:
+
+  1. 工具请求:
+     ctx.ask({
+       permission: &quot;bash&quot;,
+       patterns: [&quot;npm install lodash&quot;],  ← 具体命令
+       always: [&quot;npm install *&quot;],         ← &quot;Always&quot; 时保存的更宽泛模式
+     })
+
+  2. 用户选择 &quot;Always&quot;:
+     → 保存规则: { bash: { &quot;npm install *&quot;: &quot;allow&quot; } }
+     → 注意: 保存的是 &quot;npm install *&quot; 而不是 &quot;npm install lodash&quot;
+     → 这样后续 &quot;npm install express&quot; 也会自动允许
+
+  3. 同 Session 中的待确认权限自动解决:
+     → 如果有其他 &quot;npm install xxx&quot; 正在等待用户确认
+     → 这些请求会被新规则匹配 → 自动允许
+
+  BashArity 模式生成:
+  ┌──────────────────────────────────────────────┐
+  │  命令                    always 模式          │
+  │  ──────────────────────────────────────────── │
+  │  &quot;npm install lodash&quot;  → &quot;npm install *&quot;     │
+  │  &quot;git checkout main&quot;   → &quot;git checkout *&quot;    │
+  │  &quot;touch file.txt&quot;      → &quot;touch *&quot;          │
+  │  &quot;rm -rf build&quot;        → &quot;rm *&quot;             │
+  │  &quot;cd src &amp;&amp; ls&quot;        → &quot;cd * &amp;&amp; ls *&quot;     │
+  │  &quot;echo hello&quot;          → &quot;echo *&quot;           │
+  └──────────────────────────────────────────────┘
+</code></pre><h2>设计要点</h2><ul><li><strong>白名单模型 — 默认安全</strong> — 没有规则时默认 &quot;ask&quot;， 不会静默执行任何危险操作。只有用户明确允许的才会自动放行。</li><li><strong>最后匹配胜出 — 规则覆盖</strong> — 规则按声明顺序评估，后面的覆盖前面的。 这让你可以先设 <code>*<!-- -->: &quot;allow&quot;</code> 再设特例。</li><li><strong>Always 保存更宽泛的模式</strong> — 用户允许 <code>npm install lodash</code> 时， 保存的是 <code>npm install *</code>。平衡了便利性和安全性。</li><li><strong>四层合并覆盖</strong> — Session → Agent → Config → DB， 子 Agent 可以有更严格的限制，用户配置可以放宽默认值。</li><li><strong>反馈机制让 LLM 能学习</strong> — 用户拒绝时可以说&quot;请用另一种方式&quot;， LLM 看到反馈后可以调整策略（换个命令、换个文件路径）。</li></ul></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"210\",\"static/chunks/app/guide/layout-103dca6b3bf7cb84.js\"],\"default\"]\n1b:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n8:T140e,"])</script><script>self.__next_f.push([1,"\n  工具调用: ctx.ask({ permission: \"edit\", patterns: [\"src/app.ts\"] })\n       │\n       ▼\n  ┌──────────────────────────────────────────────────────┐\n  │  第 1 步: 合并规则集 (优先级从高到低)                  │\n  │                                                      │\n  │  ┌────────────────┐                                  │\n  │  │ Session 权限    │  ← 最高优先级                    │\n  │  │ (Fork/子任务时) │     session.permission           │\n  │  └───────┬────────┘                                  │\n  │          │ merge                                     │\n  │  ┌───────▼────────┐                                  │\n  │  │ Agent 权限      │  ← Agent 定义中的限制            │\n  │  │ (子Agent限制)   │     agent.permission             │\n  │  └───────┬────────┘                                  │\n  │          │ merge                                     │\n  │  ┌───────▼────────┐                                  │\n  │  │ Config 权限     │  ← 用户配置 (opencode.json)     │\n  │  │ (全局配置)      │     config.permission            │\n  │  └───────┬────────┘                                  │\n  │          │ merge                                     │\n  │  ┌───────▼────────┐                                  │\n  │  │ 项目权限        │  ← \"Always\" 保存的规则          │\n  │  │ (数据库存储)    │     PermissionTable.data         │\n  │  └───────┬────────┘                                  │\n  │          ▼                                           │\n  │  最终合并规则集                                       │\n  └──────────────────┬───────────────────────────────────┘\n                     │\n                     ▼\n  ┌──────────────────────────────────────────────────────┐\n  │  第 2 步: 对每个 pattern 评估规则                      │\n  │                                                      │\n  │  permission = \"edit\"                                  │\n  │  pattern = \"src/app.ts\"                              │\n  │                                                      │\n  │  规则集:                                              │\n  │  {                                                   │\n  │    \"edit\": {                                         │\n  │      \"*\": \"allow\",         ← 匹配! action = allow   │\n  │      \".env*\": \"deny\",     ← 不匹配                  │\n  │      \"src/*.ts\": \"allow\"  ← 匹配! action = allow    │\n  │    }                                   ↑              │\n  │  }                          最后匹配的胜出 ★          │\n  └──────────────────┬───────────────────────────────────┘\n                     │\n                     ▼\n  ┌──────────────────────────────────────────────────────┐\n  │  第 3 步: 执行决策                                    │\n  │                                                      │\n  │        action                                        │\n  │       ╱    │    ╲                                    │\n  │      ▼     ▼     ▼                                   │\n  │   \"allow\" \"ask\" \"deny\"                               │\n  │      │     │     │                                   │\n  │      │     │     └──► throw DeniedError              │\n  │      │     │          → 工具跳过执行                  │\n  │      │     │          → LLM 看到 \"Permission denied\"  │\n  │      │     │                                         │\n  │      │     └──► Bus.publish(\"permission.asked\")      │\n  │      │          → SSE → 前端弹出确认框               │\n  │      │          → Agent 循环暂停                      │\n  │      │          → 等待 \"permission.replied\" 事件      │\n  │      │                                               │\n  │      └──► 继续执行工具                                │\n  └──────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"bye4CeShaPMDcn-ypi8Us\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"permission\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"permission\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"permission\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Permission 权限系统\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/permission/next.ts\"}],\" (287 行)\"]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"Permission 系统是 OpenCode 的安全核心——一个\",[\"$\",\"strong\",null,{\"children\":\"白名单模型\"}],\"。 默认行为是\",[\"$\",\"strong\",null,{\"children\":\"询问用户\"}],\"，只有被明确允许的操作才会静默执行。 每个工具在执行前都必须过权限检查，没有绕过后门。\"]}],[\"$\",\"h2\",null,{\"children\":\"权限决策流程图\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$8\"}]}],\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\",\"$L15\",\"$L16\",\"$L17\",\"$L18\"]}],null,\"$L19\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L1a\",false]],\"m\":\"$undefined\",\"G\":[\"$1b\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"20:I[1474,[],\"OutletBoundary\"]\n22:I[9783,[],\"AsyncMetadataOutlet\"]\n24:I[1474,[],\"ViewportBoundary\"]\n26:I[1474,[],\"MetadataBoundary\"]\n27:\"$Sreact.suspense\"\n9:[\"$\",\"h2\",null,{\"children\":\"用户回复的三种选择\"}]\n1c:T902,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────────────────────────────────────────────────────┐\n  │                                                             │\n  │   Allow edit src/app.ts?                                    │\n  │                                                             │\n  │   ┌──────────┐  ┌──────────────┐  ┌──────────┐            │\n  │   │   Once   │  │   Always ★   │  │  Reject  │            │\n  │   └────┬─────┘  └──────┬───────┘  └────┬─────┘            │\n  │        │               │               │                    │\n  └────────┼───────────────┼───────────────┼────────────────────┘\n           │               │               │\n           ▼               ▼               ▼\n\n     ┌──────────┐   ┌─────────────┐   ┌──────────────────┐\n     │ 仅本次    │   │ 永久允许     │   │ 拒绝             │\n     │ 允许执行  │   │ 允许执行     │   │ 停止执行          │\n     │          │   │ + 保存规则   │   │ + 标记 blocked    │\n     │ 不保存   │   │ 到数据库     │   │ + 终止循环        │\n     │ 规则     │   │              │   │                   │\n     └──────────┘   │ 同 Session   │   │ 取消该 Session    │\n                    │ 中相同权限    │   │ 所有待确认权限    │\n                    │ 自动放行     │   │                   │\n                    └─────────────┘   │ 用户可附带反馈:   │\n                                      │ \"请用另一种方式\"   │\n                                      │ → LLM 可据此调整  │\n                                      └──────────────────┘\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$1c\"}]}]\nb:[\"$\",\"h2\",null,{\"children\":\"权限交互完整时序图\"}]\n1d:Tfa3,"])</script><script>self.__next_f.push([1,"\n  Agent Loop           Permission System          前端 UI            数据库\n      │                       │                      │                 │\n      │ tool-call: edit       │                      │                 │\n      │ ctx.ask({             │                      │                 │\n      │   permission:\"edit\",  │                      │                 │\n      │   patterns:[\"app.ts\"],│                      │                 │\n      │   always:[\"*.ts\"]     │                      │                 │\n      │ })                    │                      │                 │\n      │──────────────────────►│                      │                 │\n      │                       │                      │                 │\n      │                  评估规则集                    │                 │\n      │                  action = \"ask\"               │                 │\n      │                       │                      │                 │\n      │                       │ permission.asked     │                 │\n      │                       │─────────────────────►│                 │\n      │                       │                      │                 │\n      │              (暂停)    │              ┌───────┴───────┐        │\n      │              等待...   │              │ Allow edit    │        │\n      │                       │              │ src/app.ts?   │        │\n      │                       │              │               │        │\n      │                       │              │ [Once][Always] │        │\n      │                       │              │      [No]     │        │\n      │                       │              └───────┬───────┘        │\n      │                       │                      │                 │\n      │                       │                 用户点击 \"Always\"      │\n      │                       │                      │                 │\n      │                       │ permission.replied   │                 │\n      │                       │◄─────────────────────│                 │\n      │                       │ { action: \"always\" } │                 │\n      │                       │                      │                 │\n      │                       │  保存 \"Always\" 规则   │                 │\n      │                       │──────────────────────┼────────────────►│\n      │                       │                      │    UPDATE       │\n      │                       │                      │    permission   │\n      │                       │                      │    SET data =   │\n      │                       │                      │    { edit:      │\n      │                       │                      │      {\"*.ts\":   │\n      │                       │                      │       \"allow\"}} │\n      │  继续执行              │                      │                 │\n      │◄──────────────────────│                      │                 │\n      │                       │                      │                 │\n      │  EditTool.execute()   │                      │                 │\n      │                       │                      │                 │\n      │  ... 后续 edit(*.ts)  │                      │                 │\n      │  自动 allow (命中规则) │                      │                 │\n"])</script><script>self.__next_f.push([1,"c:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$1d\"}]}]\nd:[\"$\",\"h2\",null,{\"children\":\"权限规则结构\"}]\n"])</script><script>self.__next_f.push([1,"e:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"type PermissionRuleset = Record\u003cstring, PermissionRule\u003e\\n\\n// PermissionRule 可以是:\\n//   简单字符串: \\\"allow\\\" | \\\"ask\\\" | \\\"deny\\\"\\n//   或模式对象: Record\u003cglob, \\\"allow\\\" | \\\"ask\\\" | \\\"deny\\\"\u003e\\n\\n// ═══════ 示例 ═══════\\n\\n{\\n  // 简单规则 — 对整个权限类型生效\\n  \\\"read\\\": \\\"allow\\\",              // 所有文件读取自动允许\\n  \\\"bash\\\": \\\"ask\\\",                // 所有 bash 命令都要确认\\n  \\\"webfetch\\\": \\\"ask\\\",            // 网络请求要确认\\n\\n  // 模式规则 — 通配符匹配\\n  \\\"edit\\\": {\\n    \\\"*\\\": \\\"allow\\\",               // 默认允许编辑\\n    \\\".env*\\\": \\\"deny\\\",            // 禁止编辑 .env 文件\\n    \\\"*.lock\\\": \\\"ask\\\",            // 锁文件需要确认\\n    \\\"node_modules/**\\\": \\\"deny\\\",  // 禁止编辑 node_modules\\n  },\\n\\n  // 外部目录\\n  \\\"external_directory\\\": {\\n    \\\"*\\\": \\\"ask\\\",                 // 默认询问\\n    \\\"/tmp/*\\\": \\\"allow\\\",          // 允许 /tmp\\n    \\\"~/Desktop/*\\\": \\\"deny\\\",      // 禁止桌面\\n  }\\n}\\n\\n// ★ 评估顺序: 从上到下, 最后匹配的胜出\\n// 这意味着: 更具体的规则放在后面, 可以覆盖通配符\"}]}]\n"])</script><script>self.__next_f.push([1,"f:[\"$\",\"h2\",null,{\"children\":\"通配符匹配\"}]\n"])</script><script>self.__next_f.push([1,"10:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  支持的模式语法:\\n\\n  模式              匹配                    示例\\n  ──────────────────────────────────────────────────────\\n  \\\"*\\\"               任意字符串              一切\\n  \\\"*.ts\\\"            以 .ts 结尾            app.ts, index.ts\\n  \\\"src/*\\\"           src/ 直接子文件        src/app.ts\\n  \\\"src/**\\\"          src/ 所有后代          src/a/b/c.ts\\n  \\\".env*\\\"           以 .env 开头           .env, .env.local\\n  \\\"~/Desktop/*\\\"     Home 目录下            /Users/me/Desktop/x\\n  \\\"npm *\\\"           npm 开头的命令         npm install, npm test\\n  \\\"git checkout *\\\"  git checkout 命令      git checkout main\\n\\n  路径展开:\\n  \\\"~/\\\"  → \\\"/Users/username/\\\"\\n  相对路径 → 基于项目根目录解析为绝对路径\\n\"}]}]\n"])</script><script>self.__next_f.push([1,"11:[\"$\",\"h2\",null,{\"children\":\"特殊权限类型\"}]\n1e:Te86,"])</script><script>self.__next_f.push([1,"\n  ┌─────────────┬─────────────────────────────────────────────┐\n  │  权限类型    │  说明                                       │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  bash       │  Shell 命令执行                              │\n  │             │  pattern = 命令文本 (e.g. \"npm install\")    │\n  │             │  always = BashArity 模式 (e.g. \"npm *\")    │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  edit       │  文件编辑 (EditTool)                        │\n  │             │  pattern = 文件路径                          │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  write      │  文件创建 (WriteTool)                       │\n  │             │  pattern = 文件路径                          │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  read       │  文件读取 (ReadTool/GlobTool/GrepTool)     │\n  │             │  pattern = 文件路径                          │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  webfetch   │  网络请求 (WebFetchTool)                    │\n  │             │  pattern = URL                              │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  external_  │  访问项目外目录                              │\n  │  directory  │  pattern = 目录路径                          │\n  │             │  任何工具操作项目外路径时触发                 │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  doom_loop  │  死循环检测 (特殊)                           │\n  │             │  连续 3 次相同工具调用时触发                  │\n  │             │  用户决定: 继续 or 终止                      │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  task       │  创建子 Agent (TaskTool)                    │\n  │             │  pattern = 子 Agent 类型                     │\n  ├─────────────┼─────────────────────────────────────────────┤\n  │  MCP 工具名  │  MCP 外部工具                               │\n  │             │  pattern = \"*\" (MCP 工具权限粒度较粗)        │\n  └─────────────┴─────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"12:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$1e\"}]}]\n13:[\"$\",\"h2\",null,{\"children\":\"错误类型\"}]\n1f:Tb5c,"])</script><script>self.__next_f.push([1,"\n  权限系统的三种错误:\n\n  ┌────────────────────────────────────────────────────────────┐\n  │  RejectedError — 用户主动拒绝                               │\n  │                                                            │\n  │  触发: 用户在权限确认框点击 \"No\"                             │\n  │  效果:                                                     │\n  │    → Agent 循环终止 (blocked = true)                       │\n  │    → 取消该 Session 所有待确认权限                           │\n  │    → 用户可附带反馈文本 (\"请用另一种方式\")                    │\n  │    → feedback 作为工具错误返回给 LLM                        │\n  └────────────────────────────────────────────────────────────┘\n\n  ┌────────────────────────────────────────────────────────────┐\n  │  CorrectedError — 用户拒绝但给了修正建议                    │\n  │                                                            │\n  │  触发: 用户修改了工具参数 (如修改文件路径)                   │\n  │  效果:                                                     │\n  │    → 工具执行被跳过 (但循环不终止)                          │\n  │    → LLM 看到错误信息 + 用户的修正建议                      │\n  │    → LLM 可以用修正后的参数重新调用工具                      │\n  └────────────────────────────────────────────────────────────┘\n\n  ┌────────────────────────────────────────────────────────────┐\n  │  DeniedError — 规则自动拒绝 (非交互)                        │\n  │                                                            │\n  │  触发: 规则集中匹配到 \"deny\"                                │\n  │  效果:                                                     │\n  │    → 工具执行被跳过 (不询问用户)                            │\n  │    → LLM 看到 \"Permission denied\" 错误                     │\n  │    → LLM 可以尝试其他方式                                   │\n  └────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"14:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$1f\"}]}]\n15:[\"$\",\"h2\",null,{\"children\":\"\\\"Always\\\" 规则的传播\"}]\n"])</script><script>self.__next_f.push([1,"16:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  用户点击 \\\"Always\\\" 时发生了什么:\\n\\n  1. 工具请求:\\n     ctx.ask({\\n       permission: \\\"bash\\\",\\n       patterns: [\\\"npm install lodash\\\"],  ← 具体命令\\n       always: [\\\"npm install *\\\"],         ← \\\"Always\\\" 时保存的更宽泛模式\\n     })\\n\\n  2. 用户选择 \\\"Always\\\":\\n     → 保存规则: { bash: { \\\"npm install *\\\": \\\"allow\\\" } }\\n     → 注意: 保存的是 \\\"npm install *\\\" 而不是 \\\"npm install lodash\\\"\\n     → 这样后续 \\\"npm install express\\\" 也会自动允许\\n\\n  3. 同 Session 中的待确认权限自动解决:\\n     → 如果有其他 \\\"npm install xxx\\\" 正在等待用户确认\\n     → 这些请求会被新规则匹配 → 自动允许\\n\\n  BashArity 模式生成:\\n  ┌──────────────────────────────────────────────┐\\n  │  命令                    always 模式          │\\n  │  ──────────────────────────────────────────── │\\n  │  \\\"npm install lodash\\\"  → \\\"npm install *\\\"     │\\n  │  \\\"git checkout main\\\"   → \\\"git checkout *\\\"    │\\n  │  \\\"touch file.txt\\\"      → \\\"touch *\\\"          │\\n  │  \\\"rm -rf build\\\"        → \\\"rm *\\\"             │\\n  │  \\\"cd src \u0026\u0026 ls\\\"        → \\\"cd * \u0026\u0026 ls *\\\"     │\\n  │  \\\"echo hello\\\"          → \\\"echo *\\\"           │\\n  └──────────────────────────────────────────────┘\\n\"}]}]\n"])</script><script>self.__next_f.push([1,"17:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n"])</script><script>self.__next_f.push([1,"18:[\"$\",\"ul\",null,{\"children\":[[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"白名单模型 — 默认安全\"}],\" — 没有规则时默认 \\\"ask\\\"， 不会静默执行任何危险操作。只有用户明确允许的才会自动放行。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"最后匹配胜出 — 规则覆盖\"}],\" — 规则按声明顺序评估，后面的覆盖前面的。 这让你可以先设 \",[\"$\",\"code\",null,{\"children\":[\"*\",\": \\\"allow\\\"\"]}],\" 再设特例。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"Always 保存更宽泛的模式\"}],\" — 用户允许 \",[\"$\",\"code\",null,{\"children\":\"npm install lodash\"}],\" 时， 保存的是 \",[\"$\",\"code\",null,{\"children\":\"npm install *\"}],\"。平衡了便利性和安全性。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"四层合并覆盖\"}],\" — Session → Agent → Config → DB， 子 Agent 可以有更严格的限制，用户配置可以放宽默认值。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"反馈机制让 LLM 能学习\"}],\" — 用户拒绝时可以说\\\"请用另一种方式\\\"， LLM 看到反馈后可以调整策略（换个命令、换个文件路径）。\"]}]]}]\n"])</script><script>self.__next_f.push([1,"19:[\"$\",\"$L20\",null,{\"children\":[\"$L21\",[\"$\",\"$L22\",null,{\"promise\":\"$@23\"}]]}]\n1a:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L24\",null,{\"children\":\"$L25\"}],null],[\"$\",\"$L26\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$27\",null,{\"fallback\":null,\"children\":\"$L28\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"25:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n21:null\n"])</script><script>self.__next_f.push([1,"23:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"28:\"$23:metadata\"\n"])</script></body></html>
