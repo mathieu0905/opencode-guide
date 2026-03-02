@@ -1,0 +1,331 @@
+<!DOCTYPE html><!--LvKC7uTkXMmzUHCG4r9Dt--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/392-7f0b71ef1efaa3e8.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-6c91846bf7cf2ece.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Plugin 插件系统</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/plugin/index.ts</code></p><h2>概述</h2><p>Plugin 系统让 OpenCode 可以通过外部代码扩展功能。插件可以<strong>提供自定义工具、 修改 System Prompt、拦截工具执行、注入环境变量、处理认证</strong>。 支持 NPM 包和本地文件两种加载方式。</p><h2>插件系统架构</h2><pre><code>
+  ┌──────────────────────────────────────────────────────────────┐
+  │  OpenCode 核心                                                │
+  │                                                              │
+  │  ┌──────────────────────────────────────────────────────┐   │
+  │  │  Plugin Manager                                      │   │
+  │  │                                                      │   │
+  │  │  加载方式:                                            │   │
+  │  │  ┌──────────────┐  ┌──────────────────────────────┐ │   │
+  │  │  │ NPM 包       │  │ 本地文件                      │ │   │
+  │  │  │ bun install  │  │ import(&quot;file:///path/to.js&quot;) │ │   │
+  │  │  └──────┬───────┘  └──────────┬───────────────────┘ │   │
+  │  │         │                     │                      │   │
+  │  │         ▼                     ▼                      │   │
+  │  │  ┌──────────────────────────────────────────────┐   │   │
+  │  │  │  plugin(input) → Hooks                       │   │   │
+  │  │  │                                              │   │   │
+  │  │  │  input: {                                    │   │   │
+  │  │  │    client:    SDK 客户端实例                   │   │   │
+  │  │  │    project:   当前项目信息                     │   │   │
+  │  │  │    worktree:  Git 仓库根路径                   │   │   │
+  │  │  │    directory: 当前工作目录                     │   │   │
+  │  │  │    serverUrl: OpenCode 服务 URL               │   │   │
+  │  │  │    $:         Bun shell (可执行命令)          │   │   │
+  │  │  │  }                                           │   │   │
+  │  │  └──────────────────────────┬───────────────────┘   │   │
+  │  │                             │                        │   │
+  │  │                             ▼                        │   │
+  │  │  ┌──────────────────────────────────────────────┐   │   │
+  │  │  │  Hooks 注册表                                 │   │   │
+  │  │  │                                              │   │   │
+  │  │  │  config()                                    │   │   │
+  │  │  │  auth()                                      │   │   │
+  │  │  │  event()                                     │   │   │
+  │  │  │  tool.definition()                           │   │   │
+  │  │  │  tool.execute.before()                       │   │   │
+  │  │  │  tool.execute.after()                        │   │   │
+  │  │  │  shell.env()                                 │   │   │
+  │  │  │  experimental.chat.system.transform()        │   │   │
+  │  │  └──────────────────────────────────────────────┘   │   │
+  │  └──────────────────────────────────────────────────────┘   │
+  │                                                              │
+  │  Hook 触发点分布:                                             │
+  │                                                              │
+  │  prompt.ts ──► tool.definition                              │
+  │  prompt.ts ──► tool.execute.before / after                  │
+  │  llm.ts    ──► experimental.chat.system.transform           │
+  │  bash.ts   ──► shell.env                                    │
+  │  bus.ts    ──► event                                        │
+  │  server.ts ──► auth                                         │
+  └──────────────────────────────────────────────────────────────┘
+</code></pre><h2>Hook 生命周期</h2><pre><code>
+  OpenCode 启动
+       │
+       ├─► 1. 加载插件
+       │      ├── bun install (NPM 包)
+       │      └── import() (本地文件)
+       │
+       ├─► 2. 初始化: plugin(input) → hooks
+       │
+       ├─► 3. hooks.config?.(config)
+       │      └── 插件修改全局配置
+       │
+       ▼
+  ┌──────────────────────────────────────────────────────┐
+  │  运行时 Hook 触发                                      │
+  │                                                      │
+  │  每次 LLM 调用前:                                      │
+  │  ┌─────────────────────────────────────────────────┐  │
+  │  │ tool.definition                                 │  │
+  │  │   → 修改工具描述和参数                            │  │
+  │  │   → 影响 LLM 的工具选择                          │  │
+  │  │                                                 │  │
+  │  │ experimental.chat.system.transform              │  │
+  │  │   → 修改 System Prompt                          │  │
+  │  │   → 注入自定义指令                               │  │
+  │  └─────────────────────────────────────────────────┘  │
+  │                                                      │
+  │  每次工具执行:                                          │
+  │  ┌─────────────────────────────────────────────────┐  │
+  │  │ tool.execute.before                             │  │
+  │  │   → 拦截/修改参数/跳过执行                       │  │
+  │  │   │                                             │  │
+  │  │   ▼                                             │  │
+  │  │ [实际工具执行]                                    │  │
+  │  │   │                                             │  │
+  │  │   ▼                                             │  │
+  │  │ tool.execute.after                              │  │
+  │  │   → 修改输出/追加信息                             │  │
+  │  └─────────────────────────────────────────────────┘  │
+  │                                                      │
+  │  Bash 命令执行时:                                       │
+  │  ┌─────────────────────────────────────────────────┐  │
+  │  │ shell.env                                       │  │
+  │  │   → 注入环境变量到子进程                          │  │
+  │  └─────────────────────────────────────────────────┘  │
+  │                                                      │
+  │  事件触发时:                                            │
+  │  ┌─────────────────────────────────────────────────┐  │
+  │  │ event                                           │  │
+  │  │   → 接收所有 Bus 事件                            │  │
+  │  │   → 日志、监控、通知等                            │  │
+  │  └─────────────────────────────────────────────────┘  │
+  │                                                      │
+  │  认证需要时:                                            │
+  │  ┌─────────────────────────────────────────────────┐  │
+  │  │ auth                                            │  │
+  │  │   → OAuth 流程获取 token                        │  │
+  │  │   → 返回 API Key 给 Provider                    │  │
+  │  └─────────────────────────────────────────────────┘  │
+  └──────────────────────────────────────────────────────┘
+</code></pre><h2>Hook 详解 + 数据流</h2><h3>tool.execute.before / after — 工具拦截</h3><pre><code>
+  LLM 调用工具: bash({ command: &quot;npm test&quot; })
+       │
+       ▼
+  ┌───────────────────────────────────────────────┐
+  │  tool.execute.before                           │
+  │                                               │
+  │  input: {                                     │
+  │    tool: &quot;bash&quot;,                              │
+  │    sessionID: &quot;ses_001&quot;,                      │
+  │    callID: &quot;call_abc&quot;,                        │
+  │    args: { command: &quot;npm test&quot; }              │
+  │  }                                            │
+  │                                               │
+  │  插件可以:                                     │
+  │    return null           → 继续正常执行        │
+  │    return { output }     → 跳过执行, 直接返回  │
+  │    修改 args             → 改变工具参数        │
+  │    throw Error           → 拒绝执行            │
+  └───────────────────┬───────────────────────────┘
+                      │
+                      ▼
+            [工具实际执行]
+                      │
+                      ▼
+  ┌───────────────────────────────────────────────┐
+  │  tool.execute.after                            │
+  │                                               │
+  │  input: {                                     │
+  │    tool: &quot;bash&quot;,                              │
+  │    args: { command: &quot;npm test&quot; },             │
+  │    result: {                                  │
+  │      title: &quot;Run tests&quot;,                      │
+  │      output: &quot;5 passed, 0 failed&quot;,           │
+  │      metadata: { exit: 0 }                    │
+  │    }                                          │
+  │  }                                            │
+  │                                               │
+  │  插件可以:                                     │
+  │    return result          → 原样返回          │
+  │    return modified_result → 修改输出          │
+  │    追加日志/监控数据                            │
+  └───────────────────────────────────────────────┘
+</code></pre><h3>shell.env — 环境变量注入</h3><pre><code>
+  Bash 工具执行命令时:
+
+  hooks[&quot;shell.env&quot;] = async ({ cwd }) =&gt; ({
+    env: {
+      DATABASE_URL: &quot;postgres://...&quot;,   // 注入数据库连接
+      NODE_OPTIONS: &quot;--max-old-space-size=4096&quot;,
+      MY_SECRET: await fetchSecret(),   // 动态获取密钥
+    }
+  })
+
+  // 效果: spawn(command, { env: { ...process.env, ...pluginEnv } })
+  // 子进程可以使用这些环境变量
+</code></pre><h2>插件加载方式</h2><pre><code>// opencode.json
+
+{
+  &quot;plugin&quot;: [
+    // ═══════ 方式 1: NPM 包 ═══════
+    &quot;opencode-anthropic-auth@0.0.13&quot;,
+    &quot;@my-org/my-plugin@^1.0.0&quot;,
+    // → bun install 到项目的 .opencode/node_modules
+    // → import(&quot;opencode-anthropic-auth&quot;)
+
+    // ═══════ 方式 2: 本地文件 ═══════
+    &quot;file:///absolute/path/to/plugin.js&quot;,
+    &quot;file://./relative/path/plugin.ts&quot;,
+    // → 直接 import()
+    // → 支持 TypeScript (Bun 原生支持)
+  ]
+}</code></pre><h2>完整插件示例</h2><pre><code>// my-plugin.ts — 一个功能完整的插件
+
+export default async function(input) {
+  const { client, project, directory, $ } = input
+
+  return {
+    // ═══════ 监听事件 ═══════
+    event({ event }) {
+      if (event.type === &quot;session.created&quot;) {
+        console.log(&quot;New session:&quot;, event.properties.info.id)
+      }
+      if (event.type === &quot;message.updated&quot;) {
+        // 可以发送通知、写日志等
+      }
+    },
+
+    // ═══════ 提供自定义工具 ═══════
+    tool: {
+      &quot;deploy&quot;: {
+        description: &quot;Deploy the application&quot;,
+        parameters: z.object({
+          environment: z.enum([&quot;staging&quot;, &quot;production&quot;]),
+        }),
+        execute: async (args, ctx) =&gt; {
+          // 工具可以请求权限
+          await ctx.ask({
+            permission: &quot;deploy&quot;,
+            patterns: [args.environment],
+          })
+
+          // 执行部署
+          const result = await $`deploy.sh ${args.environment}`.text()
+
+          return {
+            title: `Deploy to ${args.environment}`,
+            metadata: { env: args.environment },
+            output: result,
+          }
+        },
+      },
+    },
+
+    // ═══════ 修改 System Prompt ═══════
+    async &quot;experimental.chat.system.transform&quot;(input) {
+      return {
+        system: [
+          ...input.system,
+          `Project: ${project.name}`,
+          &quot;Always respond in Chinese.&quot;,
+        ]
+      }
+    },
+
+    // ═══════ 自定义认证 ═══════
+    async auth(input) {
+      if (input.provider === &quot;my-private-llm&quot;) {
+        const token = await fetchOAuthToken()
+        return { api_key: token }
+      }
+    },
+
+    // ═══════ 注入环境变量 ═══════
+    async &quot;shell.env&quot;({ cwd }) {
+      return {
+        env: { PROJECT_ROOT: directory }
+      }
+    },
+  }
+}</code></pre><h2>自定义工具 (无需插件)</h2><pre><code>
+  ═══════ 更简单的方式: .opencode/tools/ 目录 ═══════
+
+  项目结构:
+  my-project/
+  ├── .opencode/
+  │   ├── opencode.json
+  │   └── tools/              ← 工具目录
+  │       ├── deploy.ts       ← 自定义工具
+  │       └── lint.ts         ← 自定义工具
+  └── src/
+      └── ...
+
+  // .opencode/tools/deploy.ts
+  import { z } from &quot;zod&quot;
+
+  export default {
+    id: &quot;deploy&quot;,
+    init: async () =&gt; ({
+      description: &quot;Deploy the application to production&quot;,
+      parameters: z.object({
+        environment: z.enum([&quot;staging&quot;, &quot;production&quot;]),
+      }),
+      execute: async (args, ctx) =&gt; {
+        await ctx.ask({
+          permission: &quot;deploy&quot;,
+          patterns: [args.environment],
+        })
+        // ... 部署逻辑
+        return {
+          title: `Deploy to ${args.environment}`,
+          metadata: {},
+          output: &quot;Deployment successful!&quot;,
+        }
+      },
+    }),
+  }
+
+  // ★ 工具会自动注册, LLM 可以直接调用 &quot;deploy&quot;
+  // ★ 不需要 opencode.json 中的 plugin 配置
+</code></pre><h2>内置认证插件</h2><pre><code>
+  ┌──────────────────────────────────────────────────────────────┐
+  │  插件                    功能              认证流程            │
+  ├──────────────────────────────────────────────────────────────┤
+  │                                                              │
+  │  opencode-anthropic-     Anthropic        Browser OAuth      │
+  │  auth                    API Key          → callback URL     │
+  │                          获取              → 返回 API Key    │
+  │                                                              │
+  │  GitHub Copilot          Copilot          Device Flow        │
+  │  Auth (内置)             Token            → 用户授权         │
+  │                          获取              → 返回 Token      │
+  │                                                              │
+  │  GitLab Auth             GitLab           Personal Access    │
+  │  (内置)                  Token            Token 管理         │
+  │                          管理                                │
+  └──────────────────────────────────────────────────────────────┘
+</code></pre><h2>Plugin vs .opencode/tools/ 对比</h2><pre><code>
+  ┌────────────────┬──────────────────┬────────────────────────┐
+  │  能力           │ .opencode/tools/ │  Plugin (npm/本地)     │
+  ├────────────────┼──────────────────┼────────────────────────┤
+  │  自定义工具     │  ✓               │  ✓                    │
+  │  修改 System   │  ✕               │  ✓                    │
+  │  拦截工具执行   │  ✕               │  ✓                    │
+  │  自定义认证     │  ✕               │  ✓                    │
+  │  注入环境变量   │  ✕               │  ✓                    │
+  │  监听事件       │  ✕               │  ✓                    │
+  │  修改配置       │  ✕               │  ✓                    │
+  │  NPM 发布      │  ✕               │  ✓                    │
+  │  设置复杂度     │  极低 (放文件)    │  中等 (配置+编写)      │
+  └────────────────┴──────────────────┴────────────────────────┘
+
+  建议:
+    只需要自定义工具 → .opencode/tools/
+    需要更多控制     → Plugin
+</code></pre><h2>设计要点</h2><ul><li><strong>异步初始化</strong> — 插件函数是异步的，可以在初始化时做网络请求、 读取配置文件、建立数据库连接等。</li><li><strong>Hook 链式执行</strong> — 多个插件的同名 Hook 按注册顺序执行。 前一个插件的输出可以作为后一个的输入。</li><li><strong>两种扩展方式</strong> — 简单场景用 <code>.opencode/tools/</code>（零配置）， 复杂场景用 Plugin（全部 Hook 能力）。</li><li><strong>受控上下文</strong> — 插件通过 PluginInput 获取受控的上下文（SDK 客户端、 项目信息、Shell 访问），不能直接访问内部 API。</li><li><strong>NPM 生态</strong> — 插件可以发布到 NPM，版本号管理，<code>bun install</code> 自动安装依赖。</li></ul></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"392\",\"static/chunks/392-7f0b71ef1efaa3e8.js\",\"210\",\"static/chunks/app/guide/layout-6c91846bf7cf2ece.js\"],\"default\"]\n1e:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n8:T130d,"])</script><script>self.__next_f.push([1,"\n  ┌──────────────────────────────────────────────────────────────┐\n  │  OpenCode 核心                                                │\n  │                                                              │\n  │  ┌──────────────────────────────────────────────────────┐   │\n  │  │  Plugin Manager                                      │   │\n  │  │                                                      │   │\n  │  │  加载方式:                                            │   │\n  │  │  ┌──────────────┐  ┌──────────────────────────────┐ │   │\n  │  │  │ NPM 包       │  │ 本地文件                      │ │   │\n  │  │  │ bun install  │  │ import(\"file:///path/to.js\") │ │   │\n  │  │  └──────┬───────┘  └──────────┬───────────────────┘ │   │\n  │  │         │                     │                      │   │\n  │  │         ▼                     ▼                      │   │\n  │  │  ┌──────────────────────────────────────────────┐   │   │\n  │  │  │  plugin(input) → Hooks                       │   │   │\n  │  │  │                                              │   │   │\n  │  │  │  input: {                                    │   │   │\n  │  │  │    client:    SDK 客户端实例                   │   │   │\n  │  │  │    project:   当前项目信息                     │   │   │\n  │  │  │    worktree:  Git 仓库根路径                   │   │   │\n  │  │  │    directory: 当前工作目录                     │   │   │\n  │  │  │    serverUrl: OpenCode 服务 URL               │   │   │\n  │  │  │    $:         Bun shell (可执行命令)          │   │   │\n  │  │  │  }                                           │   │   │\n  │  │  └──────────────────────────┬───────────────────┘   │   │\n  │  │                             │                        │   │\n  │  │                             ▼                        │   │\n  │  │  ┌──────────────────────────────────────────────┐   │   │\n  │  │  │  Hooks 注册表                                 │   │   │\n  │  │  │                                              │   │   │\n  │  │  │  config()                                    │   │   │\n  │  │  │  auth()                                      │   │   │\n  │  │  │  event()                                     │   │   │\n  │  │  │  tool.definition()                           │   │   │\n  │  │  │  tool.execute.before()                       │   │   │\n  │  │  │  tool.execute.after()                        │   │   │\n  │  │  │  shell.env()                                 │   │   │\n  │  │  │  experimental.chat.system.transform()        │   │   │\n  │  │  └──────────────────────────────────────────────┘   │   │\n  │  └──────────────────────────────────────────────────────┘   │\n  │                                                              │\n  │  Hook 触发点分布:                                             │\n  │                                                              │\n  │  prompt.ts ──► tool.definition                              │\n  │  prompt.ts ──► tool.execute.before / after                  │\n  │  llm.ts    ──► experimental.chat.system.transform           │\n  │  bash.ts   ──► shell.env                                    │\n  │  bus.ts    ──► event                                        │\n  │  server.ts ──► auth                                         │\n  └──────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"LvKC7uTkXMmzUHCG4r9Dt\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"plugin\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"plugin\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"plugin\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Plugin 插件系统\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/plugin/index.ts\"}]]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"Plugin 系统让 OpenCode 可以通过外部代码扩展功能。插件可以\",[\"$\",\"strong\",null,{\"children\":\"提供自定义工具、 修改 System Prompt、拦截工具执行、注入环境变量、处理认证\"}],\"。 支持 NPM 包和本地文件两种加载方式。\"]}],[\"$\",\"h2\",null,{\"children\":\"插件系统架构\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$8\"}]}],\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\",\"$L15\",\"$L16\",\"$L17\",\"$L18\",\"$L19\",\"$L1a\",\"$L1b\"]}],null,\"$L1c\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L1d\",false]],\"m\":\"$undefined\",\"G\":[\"$1e\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"23:I[1474,[],\"OutletBoundary\"]\n25:I[9783,[],\"AsyncMetadataOutlet\"]\n27:I[1474,[],\"ViewportBoundary\"]\n29:I[1474,[],\"MetadataBoundary\"]\n2a:\"$Sreact.suspense\"\n9:[\"$\",\"h2\",null,{\"children\":\"Hook 生命周期\"}]\n1f:T12f5,"])</script><script>self.__next_f.push([1,"\n  OpenCode 启动\n       │\n       ├─► 1. 加载插件\n       │      ├── bun install (NPM 包)\n       │      └── import() (本地文件)\n       │\n       ├─► 2. 初始化: plugin(input) → hooks\n       │\n       ├─► 3. hooks.config?.(config)\n       │      └── 插件修改全局配置\n       │\n       ▼\n  ┌──────────────────────────────────────────────────────┐\n  │  运行时 Hook 触发                                      │\n  │                                                      │\n  │  每次 LLM 调用前:                                      │\n  │  ┌─────────────────────────────────────────────────┐  │\n  │  │ tool.definition                                 │  │\n  │  │   → 修改工具描述和参数                            │  │\n  │  │   → 影响 LLM 的工具选择                          │  │\n  │  │                                                 │  │\n  │  │ experimental.chat.system.transform              │  │\n  │  │   → 修改 System Prompt                          │  │\n  │  │   → 注入自定义指令                               │  │\n  │  └─────────────────────────────────────────────────┘  │\n  │                                                      │\n  │  每次工具执行:                                          │\n  │  ┌─────────────────────────────────────────────────┐  │\n  │  │ tool.execute.before                             │  │\n  │  │   → 拦截/修改参数/跳过执行                       │  │\n  │  │   │                                             │  │\n  │  │   ▼                                             │  │\n  │  │ [实际工具执行]                                    │  │\n  │  │   │                                             │  │\n  │  │   ▼                                             │  │\n  │  │ tool.execute.after                              │  │\n  │  │   → 修改输出/追加信息                             │  │\n  │  └─────────────────────────────────────────────────┘  │\n  │                                                      │\n  │  Bash 命令执行时:                                       │\n  │  ┌─────────────────────────────────────────────────┐  │\n  │  │ shell.env                                       │  │\n  │  │   → 注入环境变量到子进程                          │  │\n  │  └─────────────────────────────────────────────────┘  │\n  │                                                      │\n  │  事件触发时:                                            │\n  │  ┌─────────────────────────────────────────────────┐  │\n  │  │ event                                           │  │\n  │  │   → 接收所有 Bus 事件                            │  │\n  │  │   → 日志、监控、通知等                            │  │\n  │  └─────────────────────────────────────────────────┘  │\n  │                                                      │\n  │  认证需要时:                                            │\n  │  ┌─────────────────────────────────────────────────┐  │\n  │  │ auth                                            │  │\n  │  │   → OAuth 流程获取 token                        │  │\n  │  │   → 返回 API Key 给 Provider                    │  │\n  │  └─────────────────────────────────────────────────┘  │\n  └──────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$1f\"}]}]\nb:[\"$\",\"h2\",null,{\"children\":\"Hook 详解 + 数据流\"}]\nc:[\"$\",\"h3\",null,{\"children\":\"tool.execute.before / after — 工具拦截\"}]\n20:Ta01,"])</script><script>self.__next_f.push([1,"\n  LLM 调用工具: bash({ command: \"npm test\" })\n       │\n       ▼\n  ┌───────────────────────────────────────────────┐\n  │  tool.execute.before                           │\n  │                                               │\n  │  input: {                                     │\n  │    tool: \"bash\",                              │\n  │    sessionID: \"ses_001\",                      │\n  │    callID: \"call_abc\",                        │\n  │    args: { command: \"npm test\" }              │\n  │  }                                            │\n  │                                               │\n  │  插件可以:                                     │\n  │    return null           → 继续正常执行        │\n  │    return { output }     → 跳过执行, 直接返回  │\n  │    修改 args             → 改变工具参数        │\n  │    throw Error           → 拒绝执行            │\n  └───────────────────┬───────────────────────────┘\n                      │\n                      ▼\n            [工具实际执行]\n                      │\n                      ▼\n  ┌───────────────────────────────────────────────┐\n  │  tool.execute.after                            │\n  │                                               │\n  │  input: {                                     │\n  │    tool: \"bash\",                              │\n  │    args: { command: \"npm test\" },             │\n  │    result: {                                  │\n  │      title: \"Run tests\",                      │\n  │      output: \"5 passed, 0 failed\",           │\n  │      metadata: { exit: 0 }                    │\n  │    }                                          │\n  │  }                                            │\n  │                                               │\n  │  插件可以:                                     │\n  │    return result          → 原样返回          │\n  │    return modified_result → 修改输出          │\n  │    追加日志/监控数据                            │\n  └───────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"d:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$20\"}]}]\ne:[\"$\",\"h3\",null,{\"children\":\"shell.env — 环境变量注入\"}]\nf:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  Bash 工具执行命令时:\\n\\n  hooks[\\\"shell.env\\\"] = async ({ cwd }) =\u003e ({\\n    env: {\\n      DATABASE_URL: \\\"postgres://...\\\",   // 注入数据库连接\\n      NODE_OPTIONS: \\\"--max-old-space-size=4096\\\",\\n      MY_SECRET: await fetchSecret(),   // 动态获取密钥\\n    }\\n  })\\n\\n  // 效果: spawn(command, { env: { ...process.env, ...pluginEnv } })\\n  // 子进程可以使用这些环境变量\\n\"}]}]\n10:[\"$\",\"h2\",null,{\"children\":\"插件加载方式\"}]\n11:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// opencode.json\\n\\n{\\n  \\\"plugin\\\": [\\n    // ═══════ 方式 1: NPM 包 ═══════\\n    \\\"opencode-anthropic-auth@0.0.13\\\",\\n    \\\"@my-org/my-plugin@^1.0.0\\\",\\n    // → bun install 到项目的 .opencode/node_modules\\n    // → import(\\\"opencode-anthropic-auth\\\")\\n\\n    // ═══════ 方式 2: 本地文件 ═══════\\n    \\\"file:///absolute/path/to/plugin.js\\\",\\n    \\\"file://./relative/path/plugin.ts\\\",\\n    // → 直接 import()\\n    // → 支持 TypeScript (Bun 原生支持)\\n  ]\\n}\"}]}]\n12:[\"$\",\"h2\",null,{\"children\":\"完整插件示例\"}]\n21:T76a,"])</script><script>self.__next_f.push([1,"// my-plugin.ts — 一个功能完整的插件\n\nexport default async function(input) {\n  const { client, project, directory, $ } = input\n\n  return {\n    // ═══════ 监听事件 ═══════\n    event({ event }) {\n      if (event.type === \"session.created\") {\n        console.log(\"New session:\", event.properties.info.id)\n      }\n      if (event.type === \"message.updated\") {\n        // 可以发送通知、写日志等\n      }\n    },\n\n    // ═══════ 提供自定义工具 ═══════\n    tool: {\n      \"deploy\": {\n        description: \"Deploy the application\",\n        parameters: z.object({\n          environment: z.enum([\"staging\", \"production\"]),\n        }),\n        execute: async (args, ctx) =\u003e {\n          // 工具可以请求权限\n          await ctx.ask({\n            permission: \"deploy\",\n            patterns: [args.environment],\n          })\n\n          // 执行部署\n          const result = await $`deploy.sh ${args.environment}`.text()\n\n          return {\n            title: `Deploy to ${args.environment}`,\n            metadata: { env: args.environment },\n            output: result,\n          }\n        },\n      },\n    },\n\n    // ═══════ 修改 System Prompt ═══════\n    async \"experimental.chat.system.transform\"(input) {\n      return {\n        system: [\n          ...input.system,\n          `Project: ${project.name}`,\n          \"Always respond in Chinese.\",\n        ]\n      }\n    },\n\n    // ═══════ 自定义认证 ═══════\n    async auth(input) {\n      if (input.provider === \"my-private-llm\") {\n        const token = await fetchOAuthToken()\n        return { api_key: token }\n      }\n    },\n\n    // ═══════ 注入环境变量 ═══════\n    async \"shell.env\"({ cwd }) {\n      return {\n        env: { PROJECT_ROOT: directory }\n      }\n    },\n  }\n}"])</script><script>self.__next_f.push([1,"13:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$21\"}]}]\n14:[\"$\",\"h2\",null,{\"children\":\"自定义工具 (无需插件)\"}]\n"])</script><script>self.__next_f.push([1,"15:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  ═══════ 更简单的方式: .opencode/tools/ 目录 ═══════\\n\\n  项目结构:\\n  my-project/\\n  ├── .opencode/\\n  │   ├── opencode.json\\n  │   └── tools/              ← 工具目录\\n  │       ├── deploy.ts       ← 自定义工具\\n  │       └── lint.ts         ← 自定义工具\\n  └── src/\\n      └── ...\\n\\n  // .opencode/tools/deploy.ts\\n  import { z } from \\\"zod\\\"\\n\\n  export default {\\n    id: \\\"deploy\\\",\\n    init: async () =\u003e ({\\n      description: \\\"Deploy the application to production\\\",\\n      parameters: z.object({\\n        environment: z.enum([\\\"staging\\\", \\\"production\\\"]),\\n      }),\\n      execute: async (args, ctx) =\u003e {\\n        await ctx.ask({\\n          permission: \\\"deploy\\\",\\n          patterns: [args.environment],\\n        })\\n        // ... 部署逻辑\\n        return {\\n          title: `Deploy to ${args.environment}`,\\n          metadata: {},\\n          output: \\\"Deployment successful!\\\",\\n        }\\n      },\\n    }),\\n  }\\n\\n  // ★ 工具会自动注册, LLM 可以直接调用 \\\"deploy\\\"\\n  // ★ 不需要 opencode.json 中的 plugin 配置\\n\"}]}]\n"])</script><script>self.__next_f.push([1,"16:[\"$\",\"h2\",null,{\"children\":\"内置认证插件\"}]\n22:T60b,"])</script><script>self.__next_f.push([1,"\n  ┌──────────────────────────────────────────────────────────────┐\n  │  插件                    功能              认证流程            │\n  ├──────────────────────────────────────────────────────────────┤\n  │                                                              │\n  │  opencode-anthropic-     Anthropic        Browser OAuth      │\n  │  auth                    API Key          → callback URL     │\n  │                          获取              → 返回 API Key    │\n  │                                                              │\n  │  GitHub Copilot          Copilot          Device Flow        │\n  │  Auth (内置)             Token            → 用户授权         │\n  │                          获取              → 返回 Token      │\n  │                                                              │\n  │  GitLab Auth             GitLab           Personal Access    │\n  │  (内置)                  Token            Token 管理         │\n  │                          管理                                │\n  └──────────────────────────────────────────────────────────────┘\n"])</script><script>self.__next_f.push([1,"17:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$22\"}]}]\n18:[\"$\",\"h2\",null,{\"children\":\"Plugin vs .opencode/tools/ 对比\"}]\n"])</script><script>self.__next_f.push([1,"19:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"\\n  ┌────────────────┬──────────────────┬────────────────────────┐\\n  │  能力           │ .opencode/tools/ │  Plugin (npm/本地)     │\\n  ├────────────────┼──────────────────┼────────────────────────┤\\n  │  自定义工具     │  ✓               │  ✓                    │\\n  │  修改 System   │  ✕               │  ✓                    │\\n  │  拦截工具执行   │  ✕               │  ✓                    │\\n  │  自定义认证     │  ✕               │  ✓                    │\\n  │  注入环境变量   │  ✕               │  ✓                    │\\n  │  监听事件       │  ✕               │  ✓                    │\\n  │  修改配置       │  ✕               │  ✓                    │\\n  │  NPM 发布      │  ✕               │  ✓                    │\\n  │  设置复杂度     │  极低 (放文件)    │  中等 (配置+编写)      │\\n  └────────────────┴──────────────────┴────────────────────────┘\\n\\n  建议:\\n    只需要自定义工具 → .opencode/tools/\\n    需要更多控制     → Plugin\\n\"}]}]\n"])</script><script>self.__next_f.push([1,"1a:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n"])</script><script>self.__next_f.push([1,"1b:[\"$\",\"ul\",null,{\"children\":[[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"异步初始化\"}],\" — 插件函数是异步的，可以在初始化时做网络请求、 读取配置文件、建立数据库连接等。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"Hook 链式执行\"}],\" — 多个插件的同名 Hook 按注册顺序执行。 前一个插件的输出可以作为后一个的输入。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"两种扩展方式\"}],\" — 简单场景用 \",[\"$\",\"code\",null,{\"children\":\".opencode/tools/\"}],\"（零配置）， 复杂场景用 Plugin（全部 Hook 能力）。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"受控上下文\"}],\" — 插件通过 PluginInput 获取受控的上下文（SDK 客户端、 项目信息、Shell 访问），不能直接访问内部 API。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"NPM 生态\"}],\" — 插件可以发布到 NPM，版本号管理，\",[\"$\",\"code\",null,{\"children\":\"bun install\"}],\" 自动安装依赖。\"]}]]}]\n"])</script><script>self.__next_f.push([1,"1c:[\"$\",\"$L23\",null,{\"children\":[\"$L24\",[\"$\",\"$L25\",null,{\"promise\":\"$@26\"}]]}]\n1d:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L27\",null,{\"children\":\"$L28\"}],null],[\"$\",\"$L29\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$2a\",null,{\"fallback\":null,\"children\":\"$L2b\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"28:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n24:null\n"])</script><script>self.__next_f.push([1,"26:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"2b:\"$26:metadata\"\n"])</script></body></html>

@@ -1,0 +1,199 @@
+1:"$Sreact.fragment"
+2:I[1518,["1","static/chunks/1-7468df48e3930e95.js","177","static/chunks/app/layout-df5ddfbcf51af9a3.js"],"SSEProvider"]
+3:I[8139,[],""]
+4:I[9479,[],""]
+5:I[2818,[],"ClientSegmentRoot"]
+6:I[5289,["392","static/chunks/392-7f0b71ef1efaa3e8.js","210","static/chunks/app/guide/layout-6c91846bf7cf2ece.js"],"default"]
+28:I[9377,[],""]
+:HL["/opencode-guide/_next/static/css/c2c2a7251380f177.css","style"]
+0:{"P":null,"b":"LvKC7uTkXMmzUHCG4r9Dt","p":"/opencode-guide","c":["","guide",""],"i":false,"f":[[["",{"children":["guide",{"children":["__PAGE__",{}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/opencode-guide/_next/static/css/c2c2a7251380f177.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1"}]}],["$","body",null,{"className":"bg-white text-zinc-900 h-screen overflow-hidden antialiased","children":["$","$L2",null,{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]]}]]}],{"children":["guide",["$","$1","c",{"children":[null,["$","$L5",null,{"Component":"$6","slots":{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]},"params":{},"promise":"$@7"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":[["$","article",null,{"className":"prose prose-zinc prose-xl max-w-none","children":[["$","h1",null,{"children":"OpenCode Agent 框架 — 架构总览"}],["$","p",null,{"children":["OpenCode 是一个 ",["$","strong",null,{"children":"生产级 AI Agent 开发框架"}],"，采用 TypeScript + Bun 实现后端， 提供完整的会话管理、工具调用、多模型支持和实时流式输出能力。 本指南将逐模块拆解其内部架构，帮助你理解如何从零构建一个 AI Agent 系统。"]}],["$","h2",null,{"children":"为什么要学习 OpenCode 架构？"}],["$","p",null,{"children":"如果你想构建一个 AI Agent（类似 Cursor、Claude Code、Windsurf 等）， 你会面对一系列工程问题："}],["$","ul",null,{"children":[["$","li",null,{"children":"如何管理多轮对话的状态？（Session + Message 模型）"}],["$","li",null,{"children":"如何让 AI 调用工具并获取结果？（Tool 系统 + Agent Loop）"}],["$","li",null,{"children":"如何实时展示 AI 的思考过程？（SSE 事件流 + Delta 增量更新）"}],["$","li",null,{"children":"如何防止 AI 执行危险操作？（Permission 权限系统）"}],["$","li",null,{"children":"如何支持多个 LLM 提供商？（Provider 抽象层）"}],["$","li",null,{"children":"如何在上下文过长时自动压缩？（Compaction 系统）"}]]}],["$","p",null,{"children":"OpenCode 对以上每个问题都给出了完整的解决方案。学习它的架构， 等于学习了构建 AI Agent 的全套最佳实践。"}],["$","h2",null,{"children":"技术栈"}],["$","table",null,{"children":[["$","thead",null,{"children":["$","tr",null,{"children":[["$","th",null,{"children":"层"}],["$","th",null,{"children":"技术"}],["$","th",null,{"children":"为什么选它"}]]}]}],["$","tbody",null,{"children":[["$","tr",null,{"children":[["$","td",null,{"children":"运行时"}],["$","td",null,{"children":"Bun 1.3"}],["$","td",null,{"children":"高性能 JS/TS 运行时，内置 SQLite binding，启动快，原生支持 TypeScript"}]]}],["$","tr",null,{"children":[["$","td",null,{"children":"HTTP 框架"}],["$","td",null,{"children":"Hono"}],["$","td",null,{"children":"轻量级（12KB），支持 OpenAPI 自动生成，中间件丰富"}]]}],["$","tr",null,{"children":[["$","td",null,{"children":"数据库"}],["$","td",null,{"children":"SQLite + Drizzle ORM"}],["$","td",null,{"children":"嵌入式零配置，WAL 模式支持并发，Drizzle 提供类型安全查询"}]]}],["$","tr",null,{"children":[["$","td",null,{"children":"LLM 集成"}],["$","td",null,{"children":"Vercel AI SDK"}],["$","td",null,{"children":"统一 15+ 提供商的流式接口，内置工具调用、重试、token 追踪"}]]}],["$","tr",null,{"children":[["$","td",null,{"children":"实时通信"}],["$","td",null,{"children":"SSE"}],["$","td",null,{"children":"比 WebSocket 更简单，浏览器原生支持，单向推送足够"}]]}],["$","tr",null,{"children":[["$","td",null,{"children":"Schema 校验"}],["$","td",null,{"children":"Zod"}],["$","td",null,{"children":"运行时类型验证，用于配置校验和工具参数定义"}]]}],["$","tr",null,{"children":[["$","td",null,{"children":"SDK 生成"}],["$","td",null,{"children":"@hey-api/openapi-ts"}],"$L8"]}]]}]]}],"$L9","$La","$Lb","$Lc","$Ld","$Le","$Lf","$L10","$L11","$L12","$L13","$L14","$L15","$L16","$L17","$L18","$L19","$L1a","$L1b","$L1c","$L1d","$L1e","$L1f","$L20","$L21","$L22","$L23","$L24","$L25"]}],null,"$L26"]}],{},null,false]},null,false]},null,false],"$L27",false]],"m":"$undefined","G":["$28",[]],"s":false,"S":true}
+2b:I[1474,[],"OutletBoundary"]
+2d:I[9783,[],"AsyncMetadataOutlet"]
+2f:I[1474,[],"ViewportBoundary"]
+31:I[1474,[],"MetadataBoundary"]
+32:"$Sreact.suspense"
+8:["$","td",null,{"children":"从 OpenAPI schema 自动生成类型安全的客户端 SDK"}]
+9:["$","h2",null,{"children":"项目结构"}]
+a:["$","p",null,{"children":["OpenCode 是一个 monorepo，核心后端代码在 ",["$","code",null,{"children":"packages/opencode/src/"}]," 目录下："]}]
+29:Tfb0,packages/opencode/src/
+│
+├── index.ts                  # 服务入口 — Hono HTTP 服务器 (1959 行)
+│                             #    注册所有路由, 启动 SSE, 管理生命周期
+│
+├── session/                  # 会话系统 — 最核心的模块
+│   ├── index.ts              #    Session CRUD + Fork + 共享 + 归档 (877 行)
+│   ├── message-v2.ts         #    Message & Part 类型定义 + 持久化 (900 行)
+│   ├── prompt.ts             #    核心编排层 — 消息发送 + 工具解析 + 循环控制 (1959 行)
+│   ├── processor.ts          #    Agent 循环引擎 — 流式处理 + 工具执行 (421 行)
+│   ├── llm.ts                #    LLM 调用层 — AI SDK streamText 封装 (280 行)
+│   ├── compaction.ts         #    上下文压缩 — token 超限时自动摘要
+│   ├── revert.ts             #    文件回滚 — 基于 Git Snapshot
+│   ├── retry.ts              #    重试逻辑 — 指数退避
+│   └── summary.ts            #    Diff 摘要生成
+│
+├── tool/                     # 工具系统
+│   ├── tool.ts               #    Tool 接口定义 (id + init + execute)
+│   ├── registry.ts           #    工具注册表 — 决定哪些工具可用 (174 行)
+│   ├── bash.ts               #    Shell 命令执行
+│   ├── read.ts               #    文件读取 (支持 AST 分析)
+│   ├── edit.ts               #    文件编辑 (字符串匹配替换)
+│   ├── write.ts              #    文件创建/覆写
+│   ├── glob.ts               #    文件搜索 (Glob 模式)
+│   ├── grep.ts               #    内容搜索 (ripgrep)
+│   ├── task.ts               #    子任务 (启动子 Agent)
+│   ├── webfetch.ts           #    网页抓取
+│   └── ...                   #    更多工具
+│
+├── provider/                 # LLM Provider 抽象
+│   ├── provider.ts           #    15+ Provider 定义 + Model 配置 (56KB)
+│   └── transform.ts          #    参数转换层
+│
+├── bus/                      # 事件总线
+│   ├── index.ts              #    Bus.publish / Bus.subscribe (106 行)
+│   └── bus-event.ts          #    事件类型定义
+│
+├── permission/               # 权限系统
+│   └── next.ts               #    规则引擎 + 交互式审批 (287 行)
+│
+├── storage/                  # 存储层
+│   ├── db.ts                 #    SQLite 连接 + WAL 优化
+│   └── schema.ts             #    Drizzle 表定义
+│
+├── config/                   # 配置系统
+│   └── config.ts             #    四层配置合并 + Zod 校验
+│
+├── plugin/                   # 插件系统
+│   └── index.ts              #    Hook 机制 + NPM/本地插件加载
+│
+├── mcp/                      # MCP (Model Context Protocol)
+│   └── index.ts              #    外部工具服务集成
+│
+├── agent/                    # Agent 定义
+│   └── agent.ts              #    Agent 配置 (System Prompt, 权限, 模型)
+│
+├── lsp/                      # LSP 语言服务
+│   ├── client.ts             #    LSP 客户端管理
+│   └── server.ts             #    内置 LSP server 注册表
+│
+├── project/                  # 项目管理
+│   ├── project.ts            #    项目识别 (Git root commit)
+│   ├── instance.ts           #    项目实例隔离
+│   └── vcs.ts                #    Git 集成 (分支追踪)
+│
+├── snapshot/                 # Git 快照
+│   └── index.ts              #    文件变更追踪 + Diff 生成
+│
+└── server/routes/            # HTTP API 路由
+    ├── session.ts            #    /session/* 路由 (973 行)
+    ├── project.ts            #    /project/* 路由
+    └── ...                   #    其他路由
+b:["$","pre",null,{"children":["$","code",null,{"children":"$29"}]}]
+c:["$","h2",null,{"children":"核心数据流 — 一条消息的完整旅程"}]
+d:["$","p",null,{"children":"理解 OpenCode 架构的关键是理解这条数据流。当用户发送一条消息， 它会经过以下所有模块。下面用一个完整的例子说明："}]
+2a:T1a29,用户在前端输入 "帮我重构这个函数"
+  │
+  │  POST /session/{id}/prompt_async
+  │  Body: { parts: [{ type: "text", text: "帮我重构这个函数" }] }
+  │
+  ▼
+┌──────────────────────────────────────────────────────────┐
+│  1. HTTP 路由层  (server/routes/session.ts)                │
+│     接收请求, 验证参数, 调用 Session.prompt()               │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│  2. Prompt 编排层  (session/prompt.ts)                     │
+│                                                          │
+│  ┌─ 创建 UserMessage ──────────────────────────────────┐ │
+│  │  id: "01HX...", role: "user", sessionID: "..."      │ │
+│  │  → 存入 SQLite message 表                            │ │
+│  │  → 创建 TextPart { text: "帮我重构这个函数" }         │ │
+│  │  → Bus.publish("message.updated") ──► SSE 推送前端   │ │
+│  └─────────────────────────────────────────────────────┘ │
+│                                                          │
+│  ┌─ 解析执行环境 ──────────────────────────────────────┐ │
+│  │  Agent: 确定使用哪个 Agent → 获取 System Prompt      │ │
+│  │  Model: 确定使用哪个 LLM → 获取 API Key + 配置      │ │
+│  │  Tools: 组装工具列表 (内置 + MCP + 插件 + 自定义)    │ │
+│  │  History: 转换所有历史 Message 为 LLM 可读格式       │ │
+│  └─────────────────────────────────────────────────────┘ │
+│                                                          │
+│  ┌─ 创建 AssistantMessage ─────────────────────────────┐ │
+│  │  id: "01HX...", role: "assistant", parentID: user.id │ │
+│  │  → 存入 SQLite                                       │ │
+│  │  → Bus.publish("message.updated") ──► SSE 推送前端   │ │
+│  └─────────────────────────────────────────────────────┘ │
+└──────────────────┬───────────────────────────────────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────────────────────┐
+│  3. Agent 循环  (session/processor.ts)                    │
+│                                                          │
+│  while (true) {                                          │
+│    ┌─ 调用 LLM (llm.ts) ──────────────────────────────┐ │
+│    │  streamText({                                     │ │
+│    │    model: anthropic("claude-opus-4"),              │ │
+│    │    system: [agentPrompt, contextPrompt],           │ │
+│    │    messages: 完整对话历史,                          │ │
+│    │    tools: { bash, read, edit, write, glob, ... },  │ │
+│    │  })                                               │ │
+│    └───────────────────────────────────────────────────┘ │
+│                                                          │
+│    ┌─ 流式处理 ───────────────────────────────────────┐  │
+│    │  for await (event of stream.fullStream) {        │  │
+│    │                                                  │  │
+│    │    text-delta ──► 创建/追加 TextPart              │  │
+│    │      → Bus("message.part.delta")                 │  │
+│    │      → SSE → 前端实时显示打字效果                  │  │
+│    │                                                  │  │
+│    │    tool-call ──► 创建 ToolPart                    │  │
+│    │      → 权限检查 (allow / ask用户 / deny)          │  │
+│    │      → Tool.execute() 执行                       │  │
+│    │      → Bus("message.part.updated")               │  │
+│    │      → SSE → 前端显示工具执行卡片                  │  │
+│    │                                                  │  │
+│    │    tool-result ──► 更新 ToolPart 为 completed     │  │
+│    │      → 工具结果发回 LLM 作为下轮输入               │  │
+│    │                                                  │  │
+│    │    error ──► 判断是否可重试                        │  │
+│    │  }                                               │  │
+│    └──────────────────────────────────────────────────┘  │
+│                                                          │
+│    判断是否继续循环:                                       │
+│    - 有工具调用且结果已返回 → continue (LLM 继续思考)      │
+│    - 上下文 token 溢出     → compact (压缩后继续)         │
+│    - 权限被拒绝            → stop                        │
+│    - LLM 纯文本输出       → stop (认为任务完成)           │
+│  }                                                       │
+└──────────────────────────────────────────────────────────┘e:["$","pre",null,{"children":["$","code",null,{"children":"$2a"}]}]
+f:["$","h2",null,{"children":"十大核心模块"}]
+10:["$","p",null,{"children":"点击左侧导航进入各模块的详细页面。建议按顺序阅读："}]
+11:["$","h3",null,{"children":"第一梯队 — 核心数据模型"}]
+12:["$","ol",null,{"children":[["$","li",null,{"children":[["$","strong",null,{"children":"Session 会话系统"}]," — 一切的起点。理解 Session 的创建、Fork（分叉）、归档机制， 就理解了 OpenCode 的数据组织方式。重点关注降序 ID 设计和级联删除。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Message 消息模型"}]," — 最需要深入理解的模块。 Message + Part 二层结构是 OpenCode 的核心数据模型。 重点掌握 12 种 Part 类型、ToolState 状态机、Delta 流式更新机制。"]}]]}]
+13:["$","h3",null,{"children":"第二梯队 — 核心执行引擎"}]
+14:["$","ol",null,{"start":3,"children":[["$","li",null,{"children":[["$","strong",null,{"children":"Agent 执行循环"}]," — 系统的心脏。Prompt 编排层 → Processor 流处理 → LLM 调用 的三层架构，以及 while(true) 循环如何驱动多轮工具调用。重点理解 Doom Loop 检测和自动压缩。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Tool 工具系统"}]," — Agent 与外部世界的桥梁。18+ 内置工具的接口定义、 执行流程、权限检查。学习如何开发自定义工具和 MCP 集成。"]}]]}]
+15:["$","h3",null,{"children":"第三梯队 — 基础设施"}]
+16:["$","ol",null,{"start":5,"children":[["$","li",null,{"children":[["$","strong",null,{"children":"Event 事件总线"}]," — 44 种事件类型、SSE 传输、前端消费模式。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Provider LLM 抽象"}]," — 15+ 提供商的统一接口、成本追踪、Anthropic 缓存优化。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Storage 存储层"}]," — SQLite WAL 模式、Drizzle ORM、事务副作用模式。"]}]]}]
+17:["$","h3",null,{"children":"第四梯队 — 安全与扩展"}]
+18:["$","ol",null,{"start":8,"children":[["$","li",null,{"children":[["$","strong",null,{"children":"Permission 权限系统"}]," — 通配符规则引擎、交互式审批、Always 记忆机制。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Config 配置系统"}]," — 四层深度合并（系统→用户→项目→目录）。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Plugin 插件系统"}]," — Hook 机制、工具扩展、NPM 生态。"]}]]}]
+19:["$","h2",null,{"children":"关键设计理念"}]
+1a:["$","h3",null,{"children":"1. Event-Driven（事件驱动）"}]
+1b:["$","p",null,{"children":["所有内部状态变更都通过 Event Bus 广播，而不是直接通知消费者。 这意味着可以随时增加新的消费者（新的前端、日志系统、监控…）而不需要修改发布者代码。 前端通过 SSE 实时接收事件，实现零轮询的实时 UI。 后端使用 ",["$","code",null,{"children":"Database.effect()"}]," 确保事件在数据库事务提交后才发布，保证一致性。"]}]
+1c:["$","h3",null,{"children":"2. Streaming-First（流式优先）"}]
+1d:["$","p",null,{"children":["LLM 的输出不是等待完成后一次性返回，而是逐 token 通过 ",["$","code",null,{"children":"message.part.delta"}],"事件推送。用户在 AI 思考的同时就能看到输出。 对于长时间运行的工具调用，流式输出让用户知道系统没有卡住—— ToolPart 从 pending → running → completed 的状态变化全程可见。"]}]
+1e:["$","h3",null,{"children":"3. Permission-First（安全优先）"}]
+1f:["$","p",null,{"children":["这是一个 ",["$","strong",null,{"children":"白名单模型"}],"——默认行为是询问用户， 只有被明确允许的操作才会静默执行。每个工具执行前都必须过权限检查，没有绕过后门。 用户选择 \"Always\" 后规则持久化到数据库，后续同类操作自动放行。"]}]
+20:["$","h3",null,{"children":"4. Loop-Based Agent（循环驱动）"}]
+21:["$","p",null,{"children":["Agent 不是简单的「请求 → 响应」，而是一个 ",["$","code",null,{"children":"while(true)"}]," 循环： LLM 输出 → 执行工具 → 结果反馈 → LLM 继续输出 → … 循环直到 LLM 认为任务完成（不再调用工具）或被外部中断。 这就是 AI 能完成复杂多步骤任务的原因——它可以在循环中不断调整策略。 配合 Doom Loop 检测和上下文自动压缩，防止循环失控。"]}]
+22:["$","h3",null,{"children":"5. Git-Native（Git 原生）"}]
+23:["$","p",null,{"children":"项目 ID 来自 Git 的第一个 root commit hash（同一仓库的不同 clone 共享同一 ID）。 Snapshot 系统基于 Git 对象数据库追踪文件变更。 Revert 功能通过 Git 快照恢复文件到任意时间点。 分支切换通过 .git/HEAD 文件监听实时感知。"}]
+24:["$","h3",null,{"children":"6. Context-Based Isolation（上下文隔离）"}]
+25:["$","p",null,{"children":"每个项目目录拥有独立的 Instance 上下文（LSP 客户端、文件监听器、VCS 状态、插件实例）。 同时打开两个项目不会互相干扰。Instance 通过 AsyncLocalStorage 实现， 每个请求自动绑定到对应的项目上下文。"}]
+26:["$","$L2b",null,{"children":["$L2c",["$","$L2d",null,{"promise":"$@2e"}]]}]
+27:["$","$1","h",{"children":[null,[["$","$L2f",null,{"children":"$L30"}],null],["$","$L31",null,{"children":["$","div",null,{"hidden":true,"children":["$","$32",null,{"fallback":null,"children":"$L33"}]}]}]]}]
+7:"$0:f:0:1:2:children:1:props:children:1:props:params"
+30:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+2c:null
+2e:{"metadata":[["$","title","0",{"children":"OpenCode"}],["$","meta","1",{"name":"description","content":"AI Agent Chat Interface"}]],"error":null,"digest":"$undefined"}
+33:"$2e:metadata"

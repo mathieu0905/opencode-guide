@@ -1,0 +1,549 @@
+<!DOCTYPE html><!--LvKC7uTkXMmzUHCG4r9Dt--><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/opencode-guide/_next/static/css/c2c2a7251380f177.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js"/><script src="/opencode-guide/_next/static/chunks/501c9b0b-db4d4217dcff3294.js" async=""></script><script src="/opencode-guide/_next/static/chunks/592-01edf5e30a65b983.js" async=""></script><script src="/opencode-guide/_next/static/chunks/main-app-488d2a5082d4cf91.js" async=""></script><script src="/opencode-guide/_next/static/chunks/1-7468df48e3930e95.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/layout-df5ddfbcf51af9a3.js" async=""></script><script src="/opencode-guide/_next/static/chunks/392-7f0b71ef1efaa3e8.js" async=""></script><script src="/opencode-guide/_next/static/chunks/app/guide/layout-6c91846bf7cf2ece.js" async=""></script><title>OpenCode</title><meta name="description" content="AI Agent Chat Interface"/><script src="/opencode-guide/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script></head><body class="bg-white text-zinc-900 h-screen overflow-hidden antialiased"><div hidden=""><!--$--><!--/$--></div><div class="flex h-screen"><button class="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white border border-zinc-200 shadow-sm" aria-label="Toggle menu"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button><aside class="
+          w-56 shrink-0 border-r border-zinc-200 flex flex-col overflow-y-auto bg-zinc-50
+          fixed lg:static inset-y-0 left-0 z-40 transition-transform duration-300
+          -translate-x-full lg:translate-x-0
+        "><div class="p-4 border-b border-zinc-200"><h1 class="text-lg font-bold text-zinc-900">OpenCode Guide</h1><p class="text-xs text-zinc-500 mt-1">Agent 框架架构指南</p></div><nav class="flex-1 py-2"><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/">架构总览</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/session/">Session 会话系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/message/">Message 消息模型</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/agent-loop/">Agent 执行循环</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/tool/">Tool 工具系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/event/">Event 事件总线</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/provider/">Provider LLM 抽象</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/storage/">Storage 存储层</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/memory/">Memory 上下文管理</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/permission/">Permission 权限系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/config/">Config 配置系统</a><a class="block px-4 py-2 text-sm transition-colors text-zinc-600 hover:text-zinc-900 hover:bg-white" href="/opencode-guide/guide/plugin/">Plugin 插件系统</a></nav></aside><main class="flex-1 overflow-y-auto"><div class="px-4 sm:px-8 lg:px-12 py-6 sm:py-8 lg:py-10"><article class="prose prose-zinc prose-xl max-w-none"><h1>Tool 工具系统</h1><p class="text-zinc-500">源码位置：<code>packages/opencode/src/tool/tool.ts</code> (接口定义)<br/>注册表：<code>packages/opencode/src/tool/registry.ts</code> (174 行)<br/>工具解析：<code>packages/opencode/src/session/prompt.ts</code> (resolveTools)<br/>截断引擎：<code>packages/opencode/src/tool/truncation.ts</code></p><h2>概述</h2><p>Tool 系统是 Agent 框架中工程量最大的模块。它不只是&quot;定义一个函数让 LLM 调用&quot;—— 而是一套包含<strong>参数校验、权限检查、输出截断、插件 Hook、LSP 集成、 Tree-sitter 解析、9 层替换策略</strong>的完整框架。 每个工具都是一个精心设计的产品级组件。</p><h2>Tool 接口 — 不只是 execute()</h2><pre><code>// tool.ts — 完整接口
+
+type Tool.Info&lt;Params extends ZodType, Metadata&gt; = {
+  id: string    // &quot;bash&quot;, &quot;read&quot;, &quot;edit&quot;, &quot;write&quot;, ...
+
+  init: (ctx?: InitContext) =&gt; Promise&lt;{
+    // ★ description 直接影响 LLM 的调用决策
+    // 写得好 → LLM 在正确时机调用
+    // 写得差 → LLM 胡乱调用或从不调用
+    description: string
+
+    // ★ Zod schema → 自动转为 JSON Schema → 传给 LLM
+    parameters: Params
+
+    // 实际执行
+    execute: (args, ctx: Context) =&gt; Promise&lt;{
+      title: string              // UI 显示标题
+      metadata: Metadata         // UI 显示的元数据
+      output: string             // ★ 返回给 LLM 的文本
+      attachments?: FilePart[]   // 可选: 图片/PDF 附件
+    }&gt;
+
+    // 自定义参数校验错误格式 (给 LLM 看的)
+    formatValidationError?: (error: ZodError) =&gt; string
+  }&gt;
+}
+
+// ★ Tool.define() 自动包装:
+// 1. Zod 参数校验 (execute 之前)
+// 2. 输出截断 (execute 之后)
+//    MAX_LINES = 2000, MAX_BYTES = 50KB
+//    如果超限 → 保存完整输出到文件 → 返回截断版本 + 文件路径提示</code></pre><h3>执行上下文 (Context) — 工具的全部能力</h3><pre><code>type Tool.Context = {
+  sessionID: string
+  messageID: string
+  callID: string             // LLM 生成的唯一调用 ID
+  abort: AbortSignal         // 用户中止信号
+  agent: string              // 当前 Agent 名称
+  messages: WithParts[]      // ★ 完整对话历史 (工具可以查看上下文)
+
+  extra: {
+    model: Provider.Model    // 当前使用的模型
+    bypassAgentCheck: boolean
+  }
+
+  // ★ 请求权限 — 工具执行前必须调用
+  ask: (req: {
+    permission: string       // &quot;edit&quot;, &quot;bash&quot;, &quot;read&quot;, ...
+    patterns: string[]       // 具体路径/命令
+    always: string[]         // &quot;Always&quot; 时保存的更宽泛模式
+    metadata: Record&lt;...&gt;    // 显示给用户的上下文 (diff, filepath)
+  }) =&gt; Promise&lt;void&gt;
+
+  // ★ 实时更新 UI — 长时间运行时进度反馈
+  metadata: (val: {
+    title?: string
+    metadata?: any
+  }) =&gt; Promise&lt;void&gt;
+}</code></pre><h2>工具组装流程 — resolveTools()</h2><p><code>resolveTools()</code> 不是简单地返回工具列表。 每个工具都被包裹了<strong>权限检查、插件 Hook、输出截断、元数据更新</strong>：</p><pre><code>// prompt.ts — resolveTools() 简化版
+
+async function resolveTools(input) {
+  const tools = {}
+
+  // ═══════ 第 1 步: 加载内置工具 ═══════
+  for (const item of await ToolRegistry.tools(model, agent)) {
+    // Schema 转换: Zod → JSON Schema → Provider 规范化
+    const schema = ProviderTransform.schema(model,
+      z.toJSONSchema(item.parameters)
+    )
+
+    tools[item.id] = {
+      description: item.description,
+      inputSchema: jsonSchema(schema),
+
+      // ★ 每个工具调用都经过这个包装器
+      async execute(args, options) {
+        const ctx = createContext(args, options)
+
+        // 插件 Hook: 执行前
+        await Plugin.trigger(&quot;tool.execute.before&quot;, {
+          tool: item.id, sessionID, callID,
+        }, { args })
+
+        // 实际执行
+        const result = await item.execute(args, ctx)
+
+        // 插件 Hook: 执行后 (可修改结果)
+        await Plugin.trigger(&quot;tool.execute.after&quot;, {
+          tool: item.id, sessionID, callID, args,
+        }, result)
+
+        return result
+      }
+    }
+  }
+
+  // ═══════ 第 2 步: 加载 MCP 工具 ═══════
+  for (const [key, mcpTool] of await MCP.tools()) {
+    // MCP 工具同样包装: 权限 + 截断 + 插件
+    mcpTool.execute = async (args, opts) =&gt; {
+      await ctx.ask({ permission: key, patterns: [&quot;*&quot;] })
+      const result = await originalExecute(args, opts)
+      // 将 MCP 内容格式 (text/image/resource) → OpenCode 格式
+      return { title: &quot;&quot;, output: truncated, metadata: {} }
+    }
+    tools[key] = mcpTool
+  }
+
+  // ═══════ 第 3 步: 用户/Agent 禁用的工具 ═══════
+  // UserMessage.tools 可以指定 { &quot;todowrite&quot;: false }
+  for (const [tool, enabled] of Object.entries(user.tools ?? {})) {
+    if (enabled === false) delete tools[tool]
+  }
+
+  return tools
+}</code></pre><h2>Bash 工具 — 最复杂的单个工具</h2><p>Bash 工具不是简单的 <code>exec(command)</code>。它使用<strong>Tree-sitter 解析器</strong>分析命令 AST，提取路径信息做权限检查， 实现超时控制和进程树清理。</p><pre><code>// bash.ts — 参数
+{
+  command: string      // 要执行的命令
+  timeout?: number     // 超时 (默认 120000ms = 2 分钟)
+  workdir?: string     // 工作目录 (默认: 项目目录)
+  description: string  // 命令描述 (5-10 字)
+}
+
+// ═══════ Tree-sitter 命令解析 ═══════
+// 为什么用 AST 解析而不是简单的字符串分割？
+// 因为: &quot;cd src &amp;&amp; rm -rf build&quot; 包含 2 个命令,
+// 且 &quot;rm -rf&quot; 的参数 &quot;build&quot; 需要解析为路径
+
+const tree = treeSitterBash.parse(params.command)
+for (const node of tree.rootNode.descendantsOfType(&quot;command&quot;)) {
+  const tokens = node.namedChildren.map(c =&gt; c.text)
+  // tokens = [&quot;cd&quot;, &quot;src&quot;] 或 [&quot;rm&quot;, &quot;-rf&quot;, &quot;build&quot;]
+
+  // ★ 路径提取: 哪些命令的参数是路径？
+  const PATH_COMMANDS = [&quot;cd&quot;, &quot;rm&quot;, &quot;cp&quot;, &quot;mv&quot;, &quot;mkdir&quot;, &quot;touch&quot;,
+                         &quot;chmod&quot;, &quot;chown&quot;, &quot;cat&quot;]
+
+  if (PATH_COMMANDS.includes(tokens[0])) {
+    for (const arg of tokens.slice(1)) {
+      if (arg.startsWith(&quot;-&quot;)) continue  // 跳过选项
+
+      // 解析为绝对路径
+      const resolved = await $`realpath ${arg}`.cwd(cwd).text()
+
+      // ★ 检查是否在项目目录外
+      if (!Instance.containsPath(resolved)) {
+        externalDirs.add(path.dirname(resolved))
+      }
+    }
+  }
+}
+
+// ★ 外部目录需要额外权限
+if (externalDirs.size &gt; 0) {
+  await ctx.ask({
+    permission: &quot;external_directory&quot;,
+    patterns: [...externalDirs].map(d =&gt; d + &quot;/*&quot;),
+  })
+}
+
+// ★ Bash 命令本身需要权限
+// 使用 BashArity 生成语义化的权限模式:
+// &quot;npm install lodash&quot; → 权限模式 &quot;npm install *&quot;
+// &quot;git checkout main&quot;  → 权限模式 &quot;git checkout *&quot;
+// &quot;touch file.txt&quot;     → 权限模式 &quot;touch *&quot;
+await ctx.ask({
+  permission: &quot;bash&quot;,
+  patterns: [...commandTexts],
+  always: [...BashArity.prefix(command) + &quot;*&quot;],
+})</code></pre><pre><code>// bash.ts — 进程执行与控制
+
+// 启动进程
+const proc = spawn(params.command, {
+  shell: Shell.acceptable(),  // bash/sh/pwsh (跨平台)
+  cwd: workdir,
+  env: {
+    ...process.env,
+    // ★ 插件可以注入环境变量
+    ...(await Plugin.trigger(&quot;shell.env&quot;, { cwd }, { env: {} })).env,
+  },
+  stdio: [&quot;ignore&quot;, &quot;pipe&quot;, &quot;pipe&quot;],
+  detached: true,  // 独立进程组 (方便清理)
+})
+
+// ★ 实时输出流: 每有新数据就更新 UI
+proc.stdout.on(&quot;data&quot;, (chunk) =&gt; {
+  output += chunk.toString()
+  // metadata 实时更新 (UI 显示最后 30KB)
+  ctx.metadata({
+    title: params.description,
+    metadata: { output: output.slice(-30000), exit: null },
+  })
+})
+
+// ★ 三种终止场景
+let timedOut = false, aborted = false
+
+// 1. 超时
+const timer = setTimeout(() =&gt; {
+  timedOut = true
+  Shell.killTree(proc)  // 杀掉整个进程树
+}, timeout + 100)
+
+// 2. 用户中止
+ctx.abort.addEventListener(&quot;abort&quot;, () =&gt; {
+  aborted = true
+  Shell.killTree(proc)
+})
+
+// 3. 正常完成
+await proc.exited
+
+// 输出标签
+if (timedOut) output += &quot;\n&lt;bash_metadata&gt;(terminated after timeout)&lt;/bash_metadata&gt;&quot;
+if (aborted) output += &quot;\n&lt;bash_metadata&gt;User aborted&lt;/bash_metadata&gt;&quot;</code></pre><h2>Edit 工具 — 9 层替换策略</h2><p>Edit 工具的核心难题：用户（LLM）提供的 <code>oldString</code> 可能与文件中的实际内容 有微妙差异（缩进不同、空白不同、转义不同）。OpenCode 设计了<strong>9 种递进的替换策略</strong>，从精确匹配到模糊匹配逐层尝试。</p><pre><code>// edit.ts — 9 种替换器 (按顺序尝试, 第一个成功的胜出)
+
+// 1. SimpleReplacer — 精确子串匹配
+//    content.indexOf(search)
+//    最快, 但要求完全一致
+
+// 2. LineTrimmedReplacer — 逐行 trim 后匹配
+//    文件中: &quot;  const x = 1&quot;  (2空格缩进)
+//    搜索:   &quot;    const x = 1&quot;  (4空格缩进)
+//    → trim 后都是 &quot;const x = 1&quot; → 匹配成功
+//    → 替换时保留原始缩进
+
+// 3. BlockAnchorReplacer — 首尾锚定 + Levenshtein 模糊匹配
+//    要求: 搜索模式至少 3 行
+//    逻辑:
+//    - 第一行和最后一行作为 &quot;锚点&quot; (trim 后精确匹配)
+//    - 中间行用 Levenshtein 距离计算相似度
+//    - 单候选: 相似度 &gt;= 0.0 (非常宽松)
+//    - 多候选: 相似度 &gt;= 0.3 (选最佳)
+//    场景: 代码被 formatter 重排后, 首尾不变但中间空格变了
+
+// 4. WhitespaceNormalizedReplacer — 所有空白归一化
+//    将连续空白替换为单空格后匹配
+//    &quot;const   x  =  1&quot; → &quot;const x = 1&quot;
+//    场景: 代码格式化后空白变化
+
+// 5. IndentationFlexibleReplacer — 忽略缩进级别
+//    去除搜索模式和文件内容的基础缩进后匹配
+//    场景: 代码被移到了不同的嵌套层级
+
+// 6. EscapeNormalizedReplacer — 反转义匹配
+//    将 \n → 换行, \t → Tab, \&#x27; → 单引号 等
+//    场景: LLM 从字符串字面量中复制了代码, 带着转义字符
+
+// 7. TrimmedBoundaryReplacer — 首尾空白裁剪
+//    如果搜索模式有多余的首尾空白, 去掉后重试
+//    场景: 复制粘贴时多了空行
+
+// 8. ContextAwareReplacer — 上下文锚定
+//    要求: 至少 3 行
+//    - 第一行/最后一行作为上下文 (trim 后匹配)
+//    - 50% 的中间行需要匹配
+//    - 只返回第一个匹配
+//    场景: 代码被部分修改, 但上下文没变
+
+// 9. MultiOccurrenceReplacer — 多次出现
+//    返回所有精确匹配的位置
+//    配合 replaceAll: true 使用
+
+// ═══════ 匹配验证 ═══════
+for (const replacer of [Simple, LineTrimmed, BlockAnchor, ...]) {
+  for (const candidate of replacer(content, oldString)) {
+    const index = content.indexOf(candidate)
+    if (index === -1) continue
+
+    if (replaceAll) {
+      return content.replaceAll(candidate, newString)
+    }
+
+    // ★ 必须是唯一匹配 (除非 replaceAll)
+    const lastIndex = content.lastIndexOf(candidate)
+    if (index !== lastIndex) continue  // 多处出现, 跳过
+
+    return content.slice(0, index) + newString + content.slice(index + candidate.length)
+  }
+}
+// 全部失败 → 报错: &quot;Could not find oldString&quot;
+// 多处匹配 → 报错: &quot;Found multiple matches, provide more context&quot;</code></pre><pre><code>// edit.ts — 执行后的 LSP 诊断
+
+// ★ 编辑完成后, 自动运行 LSP 检查
+await LSP.touchFile(filePath, true)
+const diagnostics = await LSP.diagnostics()
+const errors = diagnostics[filePath]?.filter(d =&gt; d.severity === 1)
+
+if (errors.length &gt; 0) {
+  // ★ 将 LSP 错误附加到工具输出中
+  // LLM 会看到错误信息, 可以据此修正
+  output += `\n\nLSP errors detected:
+&lt;diagnostics&gt;
+${errors.slice(0, 20).map(LSP.Diagnostic.pretty).join(&quot;\n&quot;)}
+&lt;/diagnostics&gt;`
+}
+
+// 还检查其他文件的错误 (最多 5 个文件)
+// 因为修改一个文件可能导致依赖它的文件出错</code></pre><h2>Read 工具 — 不只是 readFile()</h2><pre><code>// read.ts — 关键特性
+
+// 参数
+{
+  filePath: string   // 文件或目录路径
+  offset?: number    // 起始行号 (1-indexed)
+  limit?: number     // 最多读取行数 (默认 2000)
+}
+
+// ═══════ 二进制文件检测 ═══════
+function isBinary(filePath) {
+  // 快速检查: 扩展名 (.zip, .exe, .class, .wasm, ...)
+  if (BINARY_EXTENSIONS.has(ext)) return true
+
+  // 深度检查: 读取前 4KB, 检查非打印字符比例
+  const sample = readSync(filePath, 4096)
+  const nonPrintable = sample.filter(byte =&gt;
+    byte === 0 || (byte &lt; 32 &amp;&amp; byte !== 9 &amp;&amp; byte !== 10 &amp;&amp; byte !== 13)
+  )
+  return nonPrintable.length / sample.length &gt; 0.3
+}
+
+// ═══════ 图片/PDF → Base64 附件 ═══════
+if (isImage || isPdf) {
+  return {
+    attachments: [{
+      type: &quot;file&quot;,
+      mime: &quot;image/png&quot;,  // 或 &quot;application/pdf&quot;
+      url: `data:${mime};base64,${base64content}`,
+    }],
+    output: &quot;File content returned as attachment&quot;,
+  }
+}
+
+// ═══════ 文本文件逐行读取 ═══════
+const rl = createInterface({
+  input: createReadStream(filePath, { encoding: &quot;utf8&quot; }),
+  crlfDelay: Infinity,  // 正确处理 \r\n
+})
+
+for await (const text of rl) {
+  // 单行截断: &gt; 2000 字符
+  const line = text.length &gt; 2000
+    ? text.substring(0, 2000) + &quot;... (line truncated)&quot;
+    : text
+
+  // 字节预算: 总共不超过 50KB
+  const size = Buffer.byteLength(line, &quot;utf-8&quot;)
+  if (bytes + size &gt; 50_000) break
+
+  raw.push(line)
+}
+
+// 输出格式 (带行号):
+// 1: import React from &#x27;react&#x27;
+// 2: import { useState } from &#x27;react&#x27;
+// ...
+// (Showing lines 1-50 of 200. Use offset=51 to continue.)
+
+// ═══════ 指令注入 ═══════
+// 如果文件有关联的 InstructionPrompt (如 AGENTS.md)
+// 自动注入为 &lt;system-reminder&gt; 标签
+const instructions = await InstructionPrompt.resolve(
+  ctx.messages, filePath, ctx.messageID
+)
+if (instructions.length &gt; 0) {
+  output += `\n\n&lt;system-reminder&gt;\n${instructions.join(&quot;\n&quot;)}\n&lt;/system-reminder&gt;`
+}</code></pre><h2>Task 工具 — 子 Agent 创建</h2><pre><code>// task.ts — 创建子 Agent
+
+// 参数
+{
+  description: string      // 3-5 字描述
+  prompt: string           // 完整的任务提示
+  subagent_type: string    // Agent 名称 (&quot;explore&quot;, &quot;coder&quot;, ...)
+  task_id?: string         // 恢复之前的子任务 (可选)
+}
+
+// ★ 创建子 Session (独立的对话空间)
+const session = await Session.create({
+  parentID: ctx.sessionID,
+  title: description + ` (@${agent.name} subagent)`,
+
+  // ★ 子 Agent 的权限限制:
+  permission: [
+    // 永远禁止 todowrite/todoread (防止子 Agent 修改主任务列表)
+    { permission: &quot;todowrite&quot;, pattern: &quot;*&quot;, action: &quot;deny&quot; },
+    { permission: &quot;todoread&quot;, pattern: &quot;*&quot;, action: &quot;deny&quot; },
+
+    // 如果 Agent 没有 task 权限, 禁止创建孙 Agent
+    ...(!hasTaskPermission
+      ? [{ permission: &quot;task&quot;, pattern: &quot;*&quot;, action: &quot;deny&quot; }]
+      : []),
+  ]
+})
+
+// ★ 在子 Session 中执行 SessionPrompt.prompt()
+// 子 Agent 拥有自己的消息循环, 独立运行
+const result = await SessionPrompt.prompt({
+  sessionID: session.id,
+  model: agent.model ?? parentModel,
+  agent: agent.name,
+  tools: { todowrite: false, todoread: false },
+  parts: await resolvePromptParts(params.prompt),
+})
+
+// 返回子 Agent 的最后一条文本输出
+const text = result.parts.findLast(p =&gt; p.type === &quot;text&quot;)?.text ?? &quot;&quot;
+return {
+  title: params.description,
+  output: [
+    `task_id: ${session.id} (for resuming if needed)`,
+    &quot;&lt;task_result&gt;&quot;,
+    text,
+    &quot;&lt;/task_result&gt;&quot;,
+  ].join(&quot;\n&quot;),
+}</code></pre><h2>输出截断引擎</h2><pre><code>// truncation.ts — 防止工具输出消耗过多 token
+
+const MAX_LINES = 2000    // 最多 2000 行
+const MAX_BYTES = 50_000  // 最多 50KB
+
+async function truncateOutput(text, options, agent) {
+  const lines = text.split(&quot;\n&quot;)
+
+  // 在限制内 → 直接返回
+  if (lines.length &lt;= MAX_LINES &amp;&amp; Buffer.byteLength(text) &lt;= MAX_BYTES) {
+    return { content: text, truncated: false }
+  }
+
+  // 超限 → 截断
+  const preview = []
+  let bytes = 0
+  for (const line of lines) {
+    const size = Buffer.byteLength(line)
+    if (bytes + size &gt; MAX_BYTES || preview.length &gt;= MAX_LINES) break
+    preview.push(line)
+    bytes += size
+  }
+
+  // ★ 保存完整输出到文件 (7 天后自动清理)
+  const filepath = path.join(TOOL_OUTPUT_DIR, uniqueID)
+  await fs.writeFile(filepath, text)
+
+  // ★ 提示 LLM 如何访问完整输出
+  const hint = hasTaskTool(agent)
+    ? `Full output saved to: ${filepath}\nUse Task tool to have explore agent process with Grep/Read`
+    : `Full output saved to: ${filepath}\nUse Grep to search or Read with offset/limit`
+
+  return {
+    content: `${preview.join(&quot;\n&quot;)}\n\n...${removed} lines truncated...\n\n${hint}`,
+    truncated: true,
+    outputPath: filepath,
+  }
+}</code></pre><h2>工具选择逻辑 — 不是所有工具都可用</h2><pre><code>// registry.ts — 根据上下文动态决定工具集
+
+function getTools(model, agent, config) {
+  const tools = [
+    // ═══════ 始终可用 ═══════
+    &quot;invalid&quot;,    // 处理 LLM 生成的无效工具名
+    &quot;bash&quot;,       // Shell 命令
+    &quot;read&quot;,       // 文件读取
+    &quot;glob&quot;,       // 文件搜索
+    &quot;grep&quot;,       // 内容搜索
+    &quot;edit&quot;,       // 文件编辑
+    &quot;write&quot;,      // 文件创建
+    &quot;task&quot;,       // 子任务
+    &quot;webfetch&quot;,   // 网页抓取
+    &quot;todowrite&quot;,  // 任务列表
+    &quot;skill&quot;,      // 技能调用
+  ]
+
+  // ═══════ 条件工具 ═══════
+
+  // GPT 模型: 用 apply_patch 替代 edit + write
+  // 因为 GPT 的 tool calling 对 apply_patch 格式更友好
+  if (model.isGPT &amp;&amp; !model.isOSS) {
+    tools.remove(&quot;edit&quot;, &quot;write&quot;)
+    tools.push(&quot;apply_patch&quot;)
+  }
+
+  // 交互式提问: 只在有 UI 的客户端可用
+  if (client === &quot;app&quot; || client === &quot;cli&quot; || client === &quot;desktop&quot;) {
+    tools.push(&quot;question&quot;)
+  }
+
+  // 搜索工具: 需要 Exa API 或 OpenCode 认证
+  if (providerID === &quot;opencode&quot; || hasExaKey) {
+    tools.push(&quot;websearch&quot;, &quot;codesearch&quot;)
+  }
+
+  // 实验性工具
+  if (config.experimental?.lsp) tools.push(&quot;lsp&quot;)
+  if (config.experimental?.batch_tool) tools.push(&quot;batch&quot;)
+  if (config.experimental?.plan_mode &amp;&amp; client === &quot;cli&quot;) tools.push(&quot;plan_exit&quot;)
+
+  return tools
+}
+
+// ★ 插件可以修改工具定义
+// Plugin.trigger(&quot;tool.definition&quot;) 在工具注册时调用
+// 插件可以修改 description 和 parameters</code></pre><h2>完整的工具执行流程</h2><pre><code>LLM 输出: tool_call { name: &quot;edit&quot;, arguments: { filePath: &quot;app.ts&quot;, ... } }
+  │
+  ▼
+Processor (processor.ts):
+  │  创建 ToolPart { status: &quot;pending&quot; }
+  │  → Bus(&quot;message.part.updated&quot;) → SSE → 前端灰色卡片
+  │  更新为 { status: &quot;running&quot; }
+  │  → Bus(&quot;message.part.updated&quot;) → SSE → 前端黄色脉冲
+  │
+  ▼
+resolveTools 包装器 (prompt.ts):
+  │
+  ├─ 1. Zod 参数校验
+  │    args = schema.parse(rawArgs)
+  │    失败 → 返回 formatValidationError() 给 LLM
+  │
+  ├─ 2. Plugin Hook: tool.execute.before
+  │    插件可以修改参数或拒绝执行
+  │    返回 null = 继续, 返回 { output } = 跳过执行
+  │
+  ├─ 3. Tool.execute(args, ctx)
+  │    │
+  │    ├─ ctx.ask() — 权限检查
+  │    │    PermissionNext.ask({
+  │    │      permission: &quot;edit&quot;,
+  │    │      patterns: [&quot;src/app.ts&quot;],
+  │    │      ruleset: merge(agent.permission, session.permission),
+  │    │    })
+  │    │    → allow: 继续
+  │    │    → ask: Bus(&quot;permission.asked&quot;) → 等待用户
+  │    │    → deny: throw DeniedError
+  │    │
+  │    ├─ 实际执行 (e.g. EditTool: 9 层替换策略)
+  │    │
+  │    └─ LSP 诊断检查 (edit/write 专属)
+  │
+  ├─ 4. Tool.define 截断包装
+  │    if (output.length &gt; 50KB || lines &gt; 2000)
+  │      → 保存到文件 → 返回截断版本
+  │
+  ├─ 5. Plugin Hook: tool.execute.after
+  │    插件可以修改输出
+  │
+  └─ 6. 返回结果
+       ToolPart { status: &quot;completed&quot;, output, title, metadata }
+       → Bus(&quot;message.part.updated&quot;) → SSE → 前端绿色卡片
+       │
+       ▼
+  结果作为 tool_result 发回 LLM → 下一轮循环</code></pre><h2>设计要点</h2><ul><li><strong>9 层替换策略是 Edit 工具的核心竞争力</strong> — 从精确匹配到 Levenshtein 模糊匹配， 处理了代码格式化、缩进变化、转义字符等常见问题。这是 LLM 编辑代码时最容易出错的环节。</li><li><strong>Tree-sitter 解析让 Bash 工具有语义级理解</strong> — 不是简单地匹配字符串， 而是解析 AST 提取命令和路径，实现精确的权限控制。</li><li><strong>输出截断 + 文件保存是 token 管理的关键</strong> — 工具输出直接返回给 LLM 作为上下文， 不截断就会浪费 token。截断后保存到文件，LLM 可以用 Read/Grep 按需查看。</li><li><strong>每个工具都是 Permission-First</strong> — 即使是 Read 这种&quot;安全&quot;操作， 也要过权限检查。外部目录访问需要额外确认。没有后门。</li><li><strong>LSP 集成让编辑有即时反馈</strong> — Edit/Write 执行后自动运行 LSP 诊断， 如果引入了编译错误，LLM 能立即看到并修正。</li><li><strong>子 Agent (Task) 实现了真正的并行和隔离</strong> — 子 Agent 在独立 Session 中运行， 有自己的消息循环和权限约束，完成后将结果返回给父 Agent。</li></ul></article><!--$--><!--/$--></div></main></div><script src="/opencode-guide/_next/static/chunks/webpack-ab9b0e06b5840bc9.js" id="_R_" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"1:\"$Sreact.fragment\"\n2:I[1518,[\"1\",\"static/chunks/1-7468df48e3930e95.js\",\"177\",\"static/chunks/app/layout-df5ddfbcf51af9a3.js\"],\"SSEProvider\"]\n3:I[8139,[],\"\"]\n4:I[9479,[],\"\"]\n5:I[2818,[],\"ClientSegmentRoot\"]\n6:I[5289,[\"392\",\"static/chunks/392-7f0b71ef1efaa3e8.js\",\"210\",\"static/chunks/app/guide/layout-6c91846bf7cf2ece.js\"],\"default\"]\n23:I[9377,[],\"\"]\n:HL[\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"style\"]\n"])</script><script>self.__next_f.push([1,"0:{\"P\":null,\"b\":\"LvKC7uTkXMmzUHCG4r9Dt\",\"p\":\"/opencode-guide\",\"c\":[\"\",\"guide\",\"tool\",\"\"],\"i\":false,\"f\":[[[\"\",{\"children\":[\"guide\",{\"children\":[\"tool\",{\"children\":[\"__PAGE__\",{}]}]}]},\"$undefined\",\"$undefined\",true],[\"\",[\"$\",\"$1\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/opencode-guide/_next/static/css/c2c2a7251380f177.css\",\"precedence\":\"next\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"}]],[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[[\"$\",\"head\",null,{\"children\":[\"$\",\"meta\",null,{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1, maximum-scale=1\"}]}],[\"$\",\"body\",null,{\"className\":\"bg-white text-zinc-900 h-screen overflow-hidden antialiased\",\"children\":[\"$\",\"$L2\",null,{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"}],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}}],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404}],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"}]}]]}]}]],[]],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]}]}]]}]]}],{\"children\":[\"guide\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L5\",null,{\"Component\":\"$6\",\"slots\":{\"children\":[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]},\"params\":{},\"promise\":\"$@7\"}]]}],{\"children\":[\"tool\",[\"$\",\"$1\",\"c\",{\"children\":[null,[\"$\",\"$L3\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L4\",null,{}],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\"}]]}],{\"children\":[\"__PAGE__\",[\"$\",\"$1\",\"c\",{\"children\":[[\"$\",\"article\",null,{\"className\":\"prose prose-zinc prose-xl max-w-none\",\"children\":[[\"$\",\"h1\",null,{\"children\":\"Tool 工具系统\"}],[\"$\",\"p\",null,{\"className\":\"text-zinc-500\",\"children\":[\"源码位置：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/tool/tool.ts\"}],\" (接口定义)\",[\"$\",\"br\",null,{}],\"注册表：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/tool/registry.ts\"}],\" (174 行)\",[\"$\",\"br\",null,{}],\"工具解析：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/session/prompt.ts\"}],\" (resolveTools)\",[\"$\",\"br\",null,{}],\"截断引擎：\",[\"$\",\"code\",null,{\"children\":\"packages/opencode/src/tool/truncation.ts\"}]]}],[\"$\",\"h2\",null,{\"children\":\"概述\"}],[\"$\",\"p\",null,{\"children\":[\"Tool 系统是 Agent 框架中工程量最大的模块。它不只是\\\"定义一个函数让 LLM 调用\\\"—— 而是一套包含\",[\"$\",\"strong\",null,{\"children\":\"参数校验、权限检查、输出截断、插件 Hook、LSP 集成、 Tree-sitter 解析、9 层替换策略\"}],\"的完整框架。 每个工具都是一个精心设计的产品级组件。\"]}],[\"$\",\"h2\",null,{\"children\":\"Tool 接口 — 不只是 execute()\"}],[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// tool.ts — 完整接口\\n\\ntype Tool.Info\u003cParams extends ZodType, Metadata\u003e = {\\n  id: string    // \\\"bash\\\", \\\"read\\\", \\\"edit\\\", \\\"write\\\", ...\\n\\n  init: (ctx?: InitContext) =\u003e Promise\u003c{\\n    // ★ description 直接影响 LLM 的调用决策\\n    // 写得好 → LLM 在正确时机调用\\n    // 写得差 → LLM 胡乱调用或从不调用\\n    description: string\\n\\n    // ★ Zod schema → 自动转为 JSON Schema → 传给 LLM\\n    parameters: Params\\n\\n    // 实际执行\\n    execute: (args, ctx: Context) =\u003e Promise\u003c{\\n      title: string              // UI 显示标题\\n      metadata: Metadata         // UI 显示的元数据\\n      output: string             // ★ 返回给 LLM 的文本\\n      attachments?: FilePart[]   // 可选: 图片/PDF 附件\\n    }\u003e\\n\\n    // 自定义参数校验错误格式 (给 LLM 看的)\\n    formatValidationError?: (error: ZodError) =\u003e string\\n  }\u003e\\n}\\n\\n// ★ Tool.define() 自动包装:\\n// 1. Zod 参数校验 (execute 之前)\\n// 2. 输出截断 (execute 之后)\\n//    MAX_LINES = 2000, MAX_BYTES = 50KB\\n//    如果超限 → 保存完整输出到文件 → 返回截断版本 + 文件路径提示\"}]}],\"$L8\",\"$L9\",\"$La\",\"$Lb\",\"$Lc\",\"$Ld\",\"$Le\",\"$Lf\",\"$L10\",\"$L11\",\"$L12\",\"$L13\",\"$L14\",\"$L15\",\"$L16\",\"$L17\",\"$L18\",\"$L19\",\"$L1a\",\"$L1b\",\"$L1c\",\"$L1d\",\"$L1e\",\"$L1f\",\"$L20\"]}],null,\"$L21\"]}],{},null,false]},null,false]},null,false]},null,false],\"$L22\",false]],\"m\":\"$undefined\",\"G\":[\"$23\",[]],\"s\":false,\"S\":true}\n"])</script><script>self.__next_f.push([1,"2d:I[1474,[],\"OutletBoundary\"]\n2f:I[9783,[],\"AsyncMetadataOutlet\"]\n31:I[1474,[],\"ViewportBoundary\"]\n33:I[1474,[],\"MetadataBoundary\"]\n34:\"$Sreact.suspense\"\n8:[\"$\",\"h3\",null,{\"children\":\"执行上下文 (Context) — 工具的全部能力\"}]\n"])</script><script>self.__next_f.push([1,"9:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"type Tool.Context = {\\n  sessionID: string\\n  messageID: string\\n  callID: string             // LLM 生成的唯一调用 ID\\n  abort: AbortSignal         // 用户中止信号\\n  agent: string              // 当前 Agent 名称\\n  messages: WithParts[]      // ★ 完整对话历史 (工具可以查看上下文)\\n\\n  extra: {\\n    model: Provider.Model    // 当前使用的模型\\n    bypassAgentCheck: boolean\\n  }\\n\\n  // ★ 请求权限 — 工具执行前必须调用\\n  ask: (req: {\\n    permission: string       // \\\"edit\\\", \\\"bash\\\", \\\"read\\\", ...\\n    patterns: string[]       // 具体路径/命令\\n    always: string[]         // \\\"Always\\\" 时保存的更宽泛模式\\n    metadata: Record\u003c...\u003e    // 显示给用户的上下文 (diff, filepath)\\n  }) =\u003e Promise\u003cvoid\u003e\\n\\n  // ★ 实时更新 UI — 长时间运行时进度反馈\\n  metadata: (val: {\\n    title?: string\\n    metadata?: any\\n  }) =\u003e Promise\u003cvoid\u003e\\n}\"}]}]\n"])</script><script>self.__next_f.push([1,"a:[\"$\",\"h2\",null,{\"children\":\"工具组装流程 — resolveTools()\"}]\nb:[\"$\",\"p\",null,{\"children\":[[\"$\",\"code\",null,{\"children\":\"resolveTools()\"}],\" 不是简单地返回工具列表。 每个工具都被包裹了\",[\"$\",\"strong\",null,{\"children\":\"权限检查、插件 Hook、输出截断、元数据更新\"}],\"：\"]}]\n24:T762,"])</script><script>self.__next_f.push([1,"// prompt.ts — resolveTools() 简化版\n\nasync function resolveTools(input) {\n  const tools = {}\n\n  // ═══════ 第 1 步: 加载内置工具 ═══════\n  for (const item of await ToolRegistry.tools(model, agent)) {\n    // Schema 转换: Zod → JSON Schema → Provider 规范化\n    const schema = ProviderTransform.schema(model,\n      z.toJSONSchema(item.parameters)\n    )\n\n    tools[item.id] = {\n      description: item.description,\n      inputSchema: jsonSchema(schema),\n\n      // ★ 每个工具调用都经过这个包装器\n      async execute(args, options) {\n        const ctx = createContext(args, options)\n\n        // 插件 Hook: 执行前\n        await Plugin.trigger(\"tool.execute.before\", {\n          tool: item.id, sessionID, callID,\n        }, { args })\n\n        // 实际执行\n        const result = await item.execute(args, ctx)\n\n        // 插件 Hook: 执行后 (可修改结果)\n        await Plugin.trigger(\"tool.execute.after\", {\n          tool: item.id, sessionID, callID, args,\n        }, result)\n\n        return result\n      }\n    }\n  }\n\n  // ═══════ 第 2 步: 加载 MCP 工具 ═══════\n  for (const [key, mcpTool] of await MCP.tools()) {\n    // MCP 工具同样包装: 权限 + 截断 + 插件\n    mcpTool.execute = async (args, opts) =\u003e {\n      await ctx.ask({ permission: key, patterns: [\"*\"] })\n      const result = await originalExecute(args, opts)\n      // 将 MCP 内容格式 (text/image/resource) → OpenCode 格式\n      return { title: \"\", output: truncated, metadata: {} }\n    }\n    tools[key] = mcpTool\n  }\n\n  // ═══════ 第 3 步: 用户/Agent 禁用的工具 ═══════\n  // UserMessage.tools 可以指定 { \"todowrite\": false }\n  for (const [tool, enabled] of Object.entries(user.tools ?? {})) {\n    if (enabled === false) delete tools[tool]\n  }\n\n  return tools\n}"])</script><script>self.__next_f.push([1,"c:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$24\"}]}]\nd:[\"$\",\"h2\",null,{\"children\":\"Bash 工具 — 最复杂的单个工具\"}]\ne:[\"$\",\"p\",null,{\"children\":[\"Bash 工具不是简单的 \",[\"$\",\"code\",null,{\"children\":\"exec(command)\"}],\"。它使用\",[\"$\",\"strong\",null,{\"children\":\"Tree-sitter 解析器\"}],\"分析命令 AST，提取路径信息做权限检查， 实现超时控制和进程树清理。\"]}]\n25:T738,"])</script><script>self.__next_f.push([1,"// bash.ts — 参数\n{\n  command: string      // 要执行的命令\n  timeout?: number     // 超时 (默认 120000ms = 2 分钟)\n  workdir?: string     // 工作目录 (默认: 项目目录)\n  description: string  // 命令描述 (5-10 字)\n}\n\n// ═══════ Tree-sitter 命令解析 ═══════\n// 为什么用 AST 解析而不是简单的字符串分割？\n// 因为: \"cd src \u0026\u0026 rm -rf build\" 包含 2 个命令,\n// 且 \"rm -rf\" 的参数 \"build\" 需要解析为路径\n\nconst tree = treeSitterBash.parse(params.command)\nfor (const node of tree.rootNode.descendantsOfType(\"command\")) {\n  const tokens = node.namedChildren.map(c =\u003e c.text)\n  // tokens = [\"cd\", \"src\"] 或 [\"rm\", \"-rf\", \"build\"]\n\n  // ★ 路径提取: 哪些命令的参数是路径？\n  const PATH_COMMANDS = [\"cd\", \"rm\", \"cp\", \"mv\", \"mkdir\", \"touch\",\n                         \"chmod\", \"chown\", \"cat\"]\n\n  if (PATH_COMMANDS.includes(tokens[0])) {\n    for (const arg of tokens.slice(1)) {\n      if (arg.startsWith(\"-\")) continue  // 跳过选项\n\n      // 解析为绝对路径\n      const resolved = await $`realpath ${arg}`.cwd(cwd).text()\n\n      // ★ 检查是否在项目目录外\n      if (!Instance.containsPath(resolved)) {\n        externalDirs.add(path.dirname(resolved))\n      }\n    }\n  }\n}\n\n// ★ 外部目录需要额外权限\nif (externalDirs.size \u003e 0) {\n  await ctx.ask({\n    permission: \"external_directory\",\n    patterns: [...externalDirs].map(d =\u003e d + \"/*\"),\n  })\n}\n\n// ★ Bash 命令本身需要权限\n// 使用 BashArity 生成语义化的权限模式:\n// \"npm install lodash\" → 权限模式 \"npm install *\"\n// \"git checkout main\"  → 权限模式 \"git checkout *\"\n// \"touch file.txt\"     → 权限模式 \"touch *\"\nawait ctx.ask({\n  permission: \"bash\",\n  patterns: [...commandTexts],\n  always: [...BashArity.prefix(command) + \"*\"],\n})"])</script><script>self.__next_f.push([1,"f:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$25\"}]}]\n26:T4b3,"])</script><script>self.__next_f.push([1,"// bash.ts — 进程执行与控制\n\n// 启动进程\nconst proc = spawn(params.command, {\n  shell: Shell.acceptable(),  // bash/sh/pwsh (跨平台)\n  cwd: workdir,\n  env: {\n    ...process.env,\n    // ★ 插件可以注入环境变量\n    ...(await Plugin.trigger(\"shell.env\", { cwd }, { env: {} })).env,\n  },\n  stdio: [\"ignore\", \"pipe\", \"pipe\"],\n  detached: true,  // 独立进程组 (方便清理)\n})\n\n// ★ 实时输出流: 每有新数据就更新 UI\nproc.stdout.on(\"data\", (chunk) =\u003e {\n  output += chunk.toString()\n  // metadata 实时更新 (UI 显示最后 30KB)\n  ctx.metadata({\n    title: params.description,\n    metadata: { output: output.slice(-30000), exit: null },\n  })\n})\n\n// ★ 三种终止场景\nlet timedOut = false, aborted = false\n\n// 1. 超时\nconst timer = setTimeout(() =\u003e {\n  timedOut = true\n  Shell.killTree(proc)  // 杀掉整个进程树\n}, timeout + 100)\n\n// 2. 用户中止\nctx.abort.addEventListener(\"abort\", () =\u003e {\n  aborted = true\n  Shell.killTree(proc)\n})\n\n// 3. 正常完成\nawait proc.exited\n\n// 输出标签\nif (timedOut) output += \"\\n\u003cbash_metadata\u003e(terminated after timeout)\u003c/bash_metadata\u003e\"\nif (aborted) output += \"\\n\u003cbash_metadata\u003eUser aborted\u003c/bash_metadata\u003e\""])</script><script>self.__next_f.push([1,"10:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$26\"}]}]\n11:[\"$\",\"h2\",null,{\"children\":\"Edit 工具 — 9 层替换策略\"}]\n12:[\"$\",\"p\",null,{\"children\":[\"Edit 工具的核心难题：用户（LLM）提供的 \",[\"$\",\"code\",null,{\"children\":\"oldString\"}],\" 可能与文件中的实际内容 有微妙差异（缩进不同、空白不同、转义不同）。OpenCode 设计了\",[\"$\",\"strong\",null,{\"children\":\"9 种递进的替换策略\"}],\"，从精确匹配到模糊匹配逐层尝试。\"]}]\n27:Ta99,"])</script><script>self.__next_f.push([1,"// edit.ts — 9 种替换器 (按顺序尝试, 第一个成功的胜出)\n\n// 1. SimpleReplacer — 精确子串匹配\n//    content.indexOf(search)\n//    最快, 但要求完全一致\n\n// 2. LineTrimmedReplacer — 逐行 trim 后匹配\n//    文件中: \"  const x = 1\"  (2空格缩进)\n//    搜索:   \"    const x = 1\"  (4空格缩进)\n//    → trim 后都是 \"const x = 1\" → 匹配成功\n//    → 替换时保留原始缩进\n\n// 3. BlockAnchorReplacer — 首尾锚定 + Levenshtein 模糊匹配\n//    要求: 搜索模式至少 3 行\n//    逻辑:\n//    - 第一行和最后一行作为 \"锚点\" (trim 后精确匹配)\n//    - 中间行用 Levenshtein 距离计算相似度\n//    - 单候选: 相似度 \u003e= 0.0 (非常宽松)\n//    - 多候选: 相似度 \u003e= 0.3 (选最佳)\n//    场景: 代码被 formatter 重排后, 首尾不变但中间空格变了\n\n// 4. WhitespaceNormalizedReplacer — 所有空白归一化\n//    将连续空白替换为单空格后匹配\n//    \"const   x  =  1\" → \"const x = 1\"\n//    场景: 代码格式化后空白变化\n\n// 5. IndentationFlexibleReplacer — 忽略缩进级别\n//    去除搜索模式和文件内容的基础缩进后匹配\n//    场景: 代码被移到了不同的嵌套层级\n\n// 6. EscapeNormalizedReplacer — 反转义匹配\n//    将 \\n → 换行, \\t → Tab, \\' → 单引号 等\n//    场景: LLM 从字符串字面量中复制了代码, 带着转义字符\n\n// 7. TrimmedBoundaryReplacer — 首尾空白裁剪\n//    如果搜索模式有多余的首尾空白, 去掉后重试\n//    场景: 复制粘贴时多了空行\n\n// 8. ContextAwareReplacer — 上下文锚定\n//    要求: 至少 3 行\n//    - 第一行/最后一行作为上下文 (trim 后匹配)\n//    - 50% 的中间行需要匹配\n//    - 只返回第一个匹配\n//    场景: 代码被部分修改, 但上下文没变\n\n// 9. MultiOccurrenceReplacer — 多次出现\n//    返回所有精确匹配的位置\n//    配合 replaceAll: true 使用\n\n// ═══════ 匹配验证 ═══════\nfor (const replacer of [Simple, LineTrimmed, BlockAnchor, ...]) {\n  for (const candidate of replacer(content, oldString)) {\n    const index = content.indexOf(candidate)\n    if (index === -1) continue\n\n    if (replaceAll) {\n      return content.replaceAll(candidate, newString)\n    }\n\n    // ★ 必须是唯一匹配 (除非 replaceAll)\n    const lastIndex = content.lastIndexOf(candidate)\n    if (index !== lastIndex) continue  // 多处出现, 跳过\n\n    return content.slice(0, index) + newString + content.slice(index + candidate.length)\n  }\n}\n// 全部失败 → 报错: \"Could not find oldString\"\n// 多处匹配 → 报错: \"Found multiple matches, provide more context\""])</script><script>self.__next_f.push([1,"13:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$27\"}]}]\n14:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"// edit.ts — 执行后的 LSP 诊断\\n\\n// ★ 编辑完成后, 自动运行 LSP 检查\\nawait LSP.touchFile(filePath, true)\\nconst diagnostics = await LSP.diagnostics()\\nconst errors = diagnostics[filePath]?.filter(d =\u003e d.severity === 1)\\n\\nif (errors.length \u003e 0) {\\n  // ★ 将 LSP 错误附加到工具输出中\\n  // LLM 会看到错误信息, 可以据此修正\\n  output += `\\\\n\\\\nLSP errors detected:\\n\u003cdiagnostics\u003e\\n${errors.slice(0, 20).map(LSP.Diagnostic.pretty).join(\\\"\\\\n\\\")}\\n\u003c/diagnostics\u003e`\\n}\\n\\n// 还检查其他文件的错误 (最多 5 个文件)\\n// 因为修改一个文件可能导致依赖它的文件出错\"}]}]\n15:[\"$\",\"h2\",null,{\"children\":\"Read 工具 — 不只是 readFile()\"}]\n28:T813,"])</script><script>self.__next_f.push([1,"// read.ts — 关键特性\n\n// 参数\n{\n  filePath: string   // 文件或目录路径\n  offset?: number    // 起始行号 (1-indexed)\n  limit?: number     // 最多读取行数 (默认 2000)\n}\n\n// ═══════ 二进制文件检测 ═══════\nfunction isBinary(filePath) {\n  // 快速检查: 扩展名 (.zip, .exe, .class, .wasm, ...)\n  if (BINARY_EXTENSIONS.has(ext)) return true\n\n  // 深度检查: 读取前 4KB, 检查非打印字符比例\n  const sample = readSync(filePath, 4096)\n  const nonPrintable = sample.filter(byte =\u003e\n    byte === 0 || (byte \u003c 32 \u0026\u0026 byte !== 9 \u0026\u0026 byte !== 10 \u0026\u0026 byte !== 13)\n  )\n  return nonPrintable.length / sample.length \u003e 0.3\n}\n\n// ═══════ 图片/PDF → Base64 附件 ═══════\nif (isImage || isPdf) {\n  return {\n    attachments: [{\n      type: \"file\",\n      mime: \"image/png\",  // 或 \"application/pdf\"\n      url: `data:${mime};base64,${base64content}`,\n    }],\n    output: \"File content returned as attachment\",\n  }\n}\n\n// ═══════ 文本文件逐行读取 ═══════\nconst rl = createInterface({\n  input: createReadStream(filePath, { encoding: \"utf8\" }),\n  crlfDelay: Infinity,  // 正确处理 \\r\\n\n})\n\nfor await (const text of rl) {\n  // 单行截断: \u003e 2000 字符\n  const line = text.length \u003e 2000\n    ? text.substring(0, 2000) + \"... (line truncated)\"\n    : text\n\n  // 字节预算: 总共不超过 50KB\n  const size = Buffer.byteLength(line, \"utf-8\")\n  if (bytes + size \u003e 50_000) break\n\n  raw.push(line)\n}\n\n// 输出格式 (带行号):\n// 1: import React from 'react'\n// 2: import { useState } from 'react'\n// ...\n// (Showing lines 1-50 of 200. Use offset=51 to continue.)\n\n// ═══════ 指令注入 ═══════\n// 如果文件有关联的 InstructionPrompt (如 AGENTS.md)\n// 自动注入为 \u003csystem-reminder\u003e 标签\nconst instructions = await InstructionPrompt.resolve(\n  ctx.messages, filePath, ctx.messageID\n)\nif (instructions.length \u003e 0) {\n  output += `\\n\\n\u003csystem-reminder\u003e\\n${instructions.join(\"\\n\")}\\n\u003c/system-reminder\u003e`\n}"])</script><script>self.__next_f.push([1,"16:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$28\"}]}]\n17:[\"$\",\"h2\",null,{\"children\":\"Task 工具 — 子 Agent 创建\"}]\n29:T5e3,"])</script><script>self.__next_f.push([1,"// task.ts — 创建子 Agent\n\n// 参数\n{\n  description: string      // 3-5 字描述\n  prompt: string           // 完整的任务提示\n  subagent_type: string    // Agent 名称 (\"explore\", \"coder\", ...)\n  task_id?: string         // 恢复之前的子任务 (可选)\n}\n\n// ★ 创建子 Session (独立的对话空间)\nconst session = await Session.create({\n  parentID: ctx.sessionID,\n  title: description + ` (@${agent.name} subagent)`,\n\n  // ★ 子 Agent 的权限限制:\n  permission: [\n    // 永远禁止 todowrite/todoread (防止子 Agent 修改主任务列表)\n    { permission: \"todowrite\", pattern: \"*\", action: \"deny\" },\n    { permission: \"todoread\", pattern: \"*\", action: \"deny\" },\n\n    // 如果 Agent 没有 task 权限, 禁止创建孙 Agent\n    ...(!hasTaskPermission\n      ? [{ permission: \"task\", pattern: \"*\", action: \"deny\" }]\n      : []),\n  ]\n})\n\n// ★ 在子 Session 中执行 SessionPrompt.prompt()\n// 子 Agent 拥有自己的消息循环, 独立运行\nconst result = await SessionPrompt.prompt({\n  sessionID: session.id,\n  model: agent.model ?? parentModel,\n  agent: agent.name,\n  tools: { todowrite: false, todoread: false },\n  parts: await resolvePromptParts(params.prompt),\n})\n\n// 返回子 Agent 的最后一条文本输出\nconst text = result.parts.findLast(p =\u003e p.type === \"text\")?.text ?? \"\"\nreturn {\n  title: params.description,\n  output: [\n    `task_id: ${session.id} (for resuming if needed)`,\n    \"\u003ctask_result\u003e\",\n    text,\n    \"\u003c/task_result\u003e\",\n  ].join(\"\\n\"),\n}"])</script><script>self.__next_f.push([1,"18:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$29\"}]}]\n19:[\"$\",\"h2\",null,{\"children\":\"输出截断引擎\"}]\n2a:T4c0,"])</script><script>self.__next_f.push([1,"// truncation.ts — 防止工具输出消耗过多 token\n\nconst MAX_LINES = 2000    // 最多 2000 行\nconst MAX_BYTES = 50_000  // 最多 50KB\n\nasync function truncateOutput(text, options, agent) {\n  const lines = text.split(\"\\n\")\n\n  // 在限制内 → 直接返回\n  if (lines.length \u003c= MAX_LINES \u0026\u0026 Buffer.byteLength(text) \u003c= MAX_BYTES) {\n    return { content: text, truncated: false }\n  }\n\n  // 超限 → 截断\n  const preview = []\n  let bytes = 0\n  for (const line of lines) {\n    const size = Buffer.byteLength(line)\n    if (bytes + size \u003e MAX_BYTES || preview.length \u003e= MAX_LINES) break\n    preview.push(line)\n    bytes += size\n  }\n\n  // ★ 保存完整输出到文件 (7 天后自动清理)\n  const filepath = path.join(TOOL_OUTPUT_DIR, uniqueID)\n  await fs.writeFile(filepath, text)\n\n  // ★ 提示 LLM 如何访问完整输出\n  const hint = hasTaskTool(agent)\n    ? `Full output saved to: ${filepath}\\nUse Task tool to have explore agent process with Grep/Read`\n    : `Full output saved to: ${filepath}\\nUse Grep to search or Read with offset/limit`\n\n  return {\n    content: `${preview.join(\"\\n\")}\\n\\n...${removed} lines truncated...\\n\\n${hint}`,\n    truncated: true,\n    outputPath: filepath,\n  }\n}"])</script><script>self.__next_f.push([1,"1a:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2a\"}]}]\n1b:[\"$\",\"h2\",null,{\"children\":\"工具选择逻辑 — 不是所有工具都可用\"}]\n2b:T60f,"])</script><script>self.__next_f.push([1,"// registry.ts — 根据上下文动态决定工具集\n\nfunction getTools(model, agent, config) {\n  const tools = [\n    // ═══════ 始终可用 ═══════\n    \"invalid\",    // 处理 LLM 生成的无效工具名\n    \"bash\",       // Shell 命令\n    \"read\",       // 文件读取\n    \"glob\",       // 文件搜索\n    \"grep\",       // 内容搜索\n    \"edit\",       // 文件编辑\n    \"write\",      // 文件创建\n    \"task\",       // 子任务\n    \"webfetch\",   // 网页抓取\n    \"todowrite\",  // 任务列表\n    \"skill\",      // 技能调用\n  ]\n\n  // ═══════ 条件工具 ═══════\n\n  // GPT 模型: 用 apply_patch 替代 edit + write\n  // 因为 GPT 的 tool calling 对 apply_patch 格式更友好\n  if (model.isGPT \u0026\u0026 !model.isOSS) {\n    tools.remove(\"edit\", \"write\")\n    tools.push(\"apply_patch\")\n  }\n\n  // 交互式提问: 只在有 UI 的客户端可用\n  if (client === \"app\" || client === \"cli\" || client === \"desktop\") {\n    tools.push(\"question\")\n  }\n\n  // 搜索工具: 需要 Exa API 或 OpenCode 认证\n  if (providerID === \"opencode\" || hasExaKey) {\n    tools.push(\"websearch\", \"codesearch\")\n  }\n\n  // 实验性工具\n  if (config.experimental?.lsp) tools.push(\"lsp\")\n  if (config.experimental?.batch_tool) tools.push(\"batch\")\n  if (config.experimental?.plan_mode \u0026\u0026 client === \"cli\") tools.push(\"plan_exit\")\n\n  return tools\n}\n\n// ★ 插件可以修改工具定义\n// Plugin.trigger(\"tool.definition\") 在工具注册时调用\n// 插件可以修改 description 和 parameters"])</script><script>self.__next_f.push([1,"1c:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2b\"}]}]\n1d:[\"$\",\"h2\",null,{\"children\":\"完整的工具执行流程\"}]\n2c:T6dd,"])</script><script>self.__next_f.push([1,"LLM 输出: tool_call { name: \"edit\", arguments: { filePath: \"app.ts\", ... } }\n  │\n  ▼\nProcessor (processor.ts):\n  │  创建 ToolPart { status: \"pending\" }\n  │  → Bus(\"message.part.updated\") → SSE → 前端灰色卡片\n  │  更新为 { status: \"running\" }\n  │  → Bus(\"message.part.updated\") → SSE → 前端黄色脉冲\n  │\n  ▼\nresolveTools 包装器 (prompt.ts):\n  │\n  ├─ 1. Zod 参数校验\n  │    args = schema.parse(rawArgs)\n  │    失败 → 返回 formatValidationError() 给 LLM\n  │\n  ├─ 2. Plugin Hook: tool.execute.before\n  │    插件可以修改参数或拒绝执行\n  │    返回 null = 继续, 返回 { output } = 跳过执行\n  │\n  ├─ 3. Tool.execute(args, ctx)\n  │    │\n  │    ├─ ctx.ask() — 权限检查\n  │    │    PermissionNext.ask({\n  │    │      permission: \"edit\",\n  │    │      patterns: [\"src/app.ts\"],\n  │    │      ruleset: merge(agent.permission, session.permission),\n  │    │    })\n  │    │    → allow: 继续\n  │    │    → ask: Bus(\"permission.asked\") → 等待用户\n  │    │    → deny: throw DeniedError\n  │    │\n  │    ├─ 实际执行 (e.g. EditTool: 9 层替换策略)\n  │    │\n  │    └─ LSP 诊断检查 (edit/write 专属)\n  │\n  ├─ 4. Tool.define 截断包装\n  │    if (output.length \u003e 50KB || lines \u003e 2000)\n  │      → 保存到文件 → 返回截断版本\n  │\n  ├─ 5. Plugin Hook: tool.execute.after\n  │    插件可以修改输出\n  │\n  └─ 6. 返回结果\n       ToolPart { status: \"completed\", output, title, metadata }\n       → Bus(\"message.part.updated\") → SSE → 前端绿色卡片\n       │\n       ▼\n  结果作为 tool_result 发回 LLM → 下一轮循环"])</script><script>self.__next_f.push([1,"1e:[\"$\",\"pre\",null,{\"children\":[\"$\",\"code\",null,{\"children\":\"$2c\"}]}]\n1f:[\"$\",\"h2\",null,{\"children\":\"设计要点\"}]\n"])</script><script>self.__next_f.push([1,"20:[\"$\",\"ul\",null,{\"children\":[[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"9 层替换策略是 Edit 工具的核心竞争力\"}],\" — 从精确匹配到 Levenshtein 模糊匹配， 处理了代码格式化、缩进变化、转义字符等常见问题。这是 LLM 编辑代码时最容易出错的环节。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"Tree-sitter 解析让 Bash 工具有语义级理解\"}],\" — 不是简单地匹配字符串， 而是解析 AST 提取命令和路径，实现精确的权限控制。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"输出截断 + 文件保存是 token 管理的关键\"}],\" — 工具输出直接返回给 LLM 作为上下文， 不截断就会浪费 token。截断后保存到文件，LLM 可以用 Read/Grep 按需查看。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"每个工具都是 Permission-First\"}],\" — 即使是 Read 这种\\\"安全\\\"操作， 也要过权限检查。外部目录访问需要额外确认。没有后门。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"LSP 集成让编辑有即时反馈\"}],\" — Edit/Write 执行后自动运行 LSP 诊断， 如果引入了编译错误，LLM 能立即看到并修正。\"]}],[\"$\",\"li\",null,{\"children\":[[\"$\",\"strong\",null,{\"children\":\"子 Agent (Task) 实现了真正的并行和隔离\"}],\" — 子 Agent 在独立 Session 中运行， 有自己的消息循环和权限约束，完成后将结果返回给父 Agent。\"]}]]}]\n"])</script><script>self.__next_f.push([1,"21:[\"$\",\"$L2d\",null,{\"children\":[\"$L2e\",[\"$\",\"$L2f\",null,{\"promise\":\"$@30\"}]]}]\n22:[\"$\",\"$1\",\"h\",{\"children\":[null,[[\"$\",\"$L31\",null,{\"children\":\"$L32\"}],null],[\"$\",\"$L33\",null,{\"children\":[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$34\",null,{\"fallback\":null,\"children\":\"$L35\"}]}]}]]}]\n7:\"$0:f:0:1:2:children:1:props:children:1:props:params\"\n"])</script><script>self.__next_f.push([1,"32:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"}],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"}]]\n2e:null\n"])</script><script>self.__next_f.push([1,"30:{\"metadata\":[[\"$\",\"title\",\"0\",{\"children\":\"OpenCode\"}],[\"$\",\"meta\",\"1\",{\"name\":\"description\",\"content\":\"AI Agent Chat Interface\"}]],\"error\":null,\"digest\":\"$undefined\"}\n"])</script><script>self.__next_f.push([1,"35:\"$30:metadata\"\n"])</script></body></html>

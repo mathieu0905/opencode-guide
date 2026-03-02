@@ -1,0 +1,91 @@
+1:"$Sreact.fragment"
+2:I[1518,["1","static/chunks/1-7468df48e3930e95.js","177","static/chunks/app/layout-df5ddfbcf51af9a3.js"],"SSEProvider"]
+3:I[8139,[],""]
+4:I[9479,[],""]
+5:I[2818,[],"ClientSegmentRoot"]
+6:I[5289,["392","static/chunks/392-7f0b71ef1efaa3e8.js","210","static/chunks/app/guide/layout-6c91846bf7cf2ece.js"],"default"]
+22:I[9377,[],""]
+:HL["/opencode-guide/_next/static/css/c2c2a7251380f177.css","style"]
+0:{"P":null,"b":"LvKC7uTkXMmzUHCG4r9Dt","p":"/opencode-guide","c":["","guide","message",""],"i":false,"f":[[["",{"children":["guide",{"children":["message",{"children":["__PAGE__",{}]}]}]},"$undefined","$undefined",true],["",["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/opencode-guide/_next/static/css/c2c2a7251380f177.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":[["$","head",null,{"children":["$","meta",null,{"name":"viewport","content":"width=device-width, initial-scale=1, maximum-scale=1"}]}],["$","body",null,{"className":"bg-white text-zinc-900 h-screen overflow-hidden antialiased","children":["$","$L2",null,{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]]}]]}],{"children":["guide",["$","$1","c",{"children":[null,["$","$L5",null,{"Component":"$6","slots":{"children":["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]},"params":{},"promise":"$@7"}]]}],{"children":["message",["$","$1","c",{"children":[null,["$","$L3",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$L4",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],{"children":["__PAGE__",["$","$1","c",{"children":[["$","article",null,{"className":"prose prose-zinc prose-xl max-w-none","children":[["$","h1",null,{"children":"Message 消息模型"}],["$","p",null,{"className":"text-zinc-500","children":["源码位置：",["$","code",null,{"children":"packages/opencode/src/session/message-v2.ts"}]," (900 行)"]}],["$","h2",null,{"children":"概述"}],["$","p",null,{"children":["Message 是 Session 内的核心数据单元。但与 ChatGPT 等产品不同，OpenCode 的 Message 并不直接包含文本内容——它通过 ",["$","strong",null,{"children":"Part 系统"}],"承载内容。"]}],["$","p",null,{"children":["你可以这样理解：",["$","strong",null,{"children":"Message 是信封，Part 是信纸"}],"。 信封上写着「谁发的、什么时候、用什么模型、花了多少钱」， 信纸上才是实际的文字、工具调用、推理过程。 一个信封里可以装多张信纸——这就是为什么一条 AI 回复可以同时包含文本 + 多次工具调用 + 推理过程。"]}],["$","h2",null,{"children":"为什么要分成 Message 和 Part？"}],["$","ul",null,{"children":[["$","li",null,{"children":[["$","strong",null,{"children":"流式更新"}]," — AI 输出文字的同时可能触发工具调用。 分成 Part 后，可以独立更新每个 Part，甚至用 delta 只发送增量文本。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"工具状态追踪"}]," — 工具从 pending → running → completed 的状态变化 独立于文本输出。Part 让每个工具调用有自己的状态机。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"类型安全"}]," — 12 种 Part 有完全不同的字段。 联合类型比一个巨大的可选字段对象更安全也更清晰。"]}]]}],["$","h2",null,{"children":"UserMessage — 用户消息"}],["$","pre",null,{"children":["$","code",null,{"children":"type UserMessage = {\n  id: string\n  sessionID: string\n  role: \"user\"           // ★ 区分 User vs Assistant\n\n  time: { created: number }\n\n  agent: string          // 使用的 Agent 名称\n  model: {\n    providerID: string   // e.g. \"anthropic\"\n    modelID: string      // e.g. \"claude-opus-4\"\n  }\n\n  // 可选覆盖\n  format?: OutputFormat  // 让 AI 以 JSON 格式输出\n  system?: string        // 临时覆盖 System Prompt\n  tools?: Record<string, boolean>  // 工具开关\n  variant?: string       // 模型变体\n\n  summary?: {\n    title?: string\n    body?: string\n    diffs: FileDiff[]    // 该消息导致的文件变更\n  }\n}\n\n// UserMessage 的 Part 通常只有:\n// - TextPart (用户输入的文字)\n// - FilePart (用户上传的图片/文件)"}]}],"$L8","$L9","$La","$Lb","$Lc","$Ld","$Le","$Lf","$L10","$L11","$L12","$L13","$L14","$L15","$L16","$L17","$L18","$L19","$L1a","$L1b","$L1c","$L1d","$L1e","$L1f"]}],null,"$L20"]}],{},null,false]},null,false]},null,false]},null,false],"$L21",false]],"m":"$undefined","G":["$22",[]],"s":false,"S":true}
+24:I[1474,[],"OutletBoundary"]
+26:I[9783,[],"AsyncMetadataOutlet"]
+28:I[1474,[],"ViewportBoundary"]
+2a:I[1474,[],"MetadataBoundary"]
+2b:"$Sreact.suspense"
+8:["$","h2",null,{"children":"AssistantMessage — AI 回复"}]
+9:["$","pre",null,{"children":["$","code",null,{"children":"type AssistantMessage = {\n  id: string\n  sessionID: string\n  role: \"assistant\"\n  parentID: string       // ★ 对应的 UserMessage ID\n\n  time: {\n    created: number      // 开始时间\n    completed?: number   // 完成时间\n    // completed 为 undefined = AI 仍在输出\n    // 前端据此判断是否显示 loading\n  }\n\n  modelID: string        // 实际使用的模型\n  providerID: string\n  mode: string\n  agent: string\n\n  path: {\n    cwd: string          // 当前工作目录\n    root: string         // 项目根目录\n  }\n\n  // ===== 成本追踪 =====\n  cost: number           // 总成本 (美元) e.g. 0.033\n  tokens: {\n    total?: number\n    input: number        // 输入 token\n    output: number       // 输出 token\n    reasoning: number    // 推理 token (extended thinking)\n    cache: {\n      read: number       // 缓存命中 (省钱!)\n      write: number      // 缓存写入\n    }\n  }\n\n  error?: ProviderAuthError     // API Key 无效\n       | UnknownError           // 未知错误\n       | MessageAbortedError    // 用户中止\n       | ContextOverflowError   // 上下文溢出\n       | ...\n\n  finish?: string        // \"stop\" | \"tool_calls\" | \"length\"\n}"}]}]
+a:["$","h2",null,{"children":"Part 系统 — 12 种内容类型"}]
+b:["$","pre",null,{"children":["$","code",null,{"children":"type Part =\n  | TextPart          // 文本输出 — 最常见\n  | ToolPart          // 工具调用 — 核心功能\n  | ReasoningPart     // 推理过程 — Claude extended thinking\n  | FilePart          // 文件附件 — 图片/PDF\n  | SubtaskPart       // 子任务 — 启动子 Agent\n  | StepStartPart     // 步骤开始标记\n  | StepFinishPart    // 步骤结束 (含 token/成本统计)\n  | SnapshotPart      // Git 快照\n  | PatchPart         // 文件变更 Diff\n  | AgentPart         // Agent 切换\n  | RetryPart         // API 重试标记\n  | CompactionPart    // 上下文压缩标记"}]}]
+c:["$","h3",null,{"children":"TextPart — 文本"}]
+d:["$","pre",null,{"children":["$","code",null,{"children":"type TextPart = {\n  id: string\n  sessionID: string\n  messageID: string\n  type: \"text\"\n  time: { created: number }\n\n  text: string          // Markdown 内容\n  synthetic?: boolean   // true = 系统生成 (非 LLM)\n  ignored?: boolean     // true = 后续 LLM 调用不包含此 Part\n}\n\n// 流式更新:\n// 创建时 text = \"\" → delta(\"Hello\") → delta(\" World\") → delta(\"!\")\n// 最终 text = \"Hello World!\""}]}]
+e:["$","h3",null,{"children":"ToolPart + ToolState 状态机"}]
+23:T511,type ToolPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "tool"
+  time: { created: number }
+  tool: string          // 工具名 e.g. "bash", "edit", "read"
+  callID: string        // LLM 生成的调用 ID
+  attachments: FilePart[]
+  state: ToolState      // ★ 状态机
+}
+
+// 状态转换:
+//   pending ──► running ──► completed
+//                       └──► error
+
+type ToolStatePending = {
+  status: "pending"
+  input: Record<string, unknown>
+  // LLM 决定调用工具, 参数已解析, 尚未执行
+  // 前端: 灰色卡片
+}
+
+type ToolStateRunning = {
+  status: "running"
+  input: Record<string, unknown>
+  // 工具正在执行 (如 bash 命令运行中)
+  // 前端: 黄色脉冲动画
+}
+
+type ToolStateCompleted = {
+  status: "completed"
+  input: Record<string, unknown>
+  output: string        // 工具返回的文本结果
+  title: string         // 显示标题 e.g. "Read src/app.ts (42 lines)"
+  metadata: Record<string, unknown>
+  // ★ output 发送回 LLM 作为 tool_result
+  // 前端: 绿色卡片, 可展开查看 output
+}
+
+type ToolStateError = {
+  status: "error"
+  input: Record<string, unknown>
+  error: string         // 错误信息
+  // ★ 错误也发送回 LLM, 它可以据此调整策略
+  // 前端: 红色卡片
+}f:["$","pre",null,{"children":["$","code",null,{"children":"$23"}]}]
+10:["$","h3",null,{"children":"StepStart / StepFinish — 步骤边界"}]
+11:["$","p",null,{"children":"Agent 循环的每一轮（一次 LLM 调用 + 工具执行）被 StepStart 和 StepFinish 包裹， 让前端可以知道「AI 的每一步做了什么、花了多少 token」："}]
+12:["$","pre",null,{"children":["$","code",null,{"children":"type StepFinishPart = {\n  type: \"step-finish\"\n  tokens: {\n    input: number\n    output: number\n    reasoning: number\n    cache: { read: number, write: number }\n  }\n  cost: number     // 这一步的美元成本\n  finish: string   // \"stop\" | \"tool_calls\" | \"length\"\n}\n\n// 示例: 一个包含 2 步的 AssistantMessage\n//\n// step-start ────── 第 1 步\n//   text: \"让我看看代码...\"\n//   tool: read(app.ts) → completed\n// step-finish ───── (cost: $0.01)\n//\n// step-start ────── 第 2 步\n//   text: \"发现 bug, 修复中...\"\n//   tool: edit(app.ts) → completed\n//   text: \"已修复!\"\n// step-finish ───── (cost: $0.02)"}]}]
+13:["$","h3",null,{"children":"其他 Part 类型"}]
+14:["$","pre",null,{"children":["$","code",null,{"children":"// ReasoningPart — Claude Extended Thinking\n{ type: \"reasoning\", text: \"...\" }\n// AI 的内部推理过程, 用户可展开查看\n\n// FilePart — 文件附件\n{ type: \"file\", mime: \"image/png\", filename: \"screenshot.png\", url: \"data:...\" }\n\n// SubtaskPart — 子任务\n{ type: \"subtask\", sessionID: \"子Session的ID\" }\n// Task 工具创建子 Agent 时产生\n\n// SnapshotPart — Git 快照\n{ type: \"snapshot\", hash: \"abc123...\" }\n// 记录文件在某时间点的状态, 用于 Revert\n\n// PatchPart — 文件变更\n{ type: \"patch\", hash: \"...\", files: [{ path: \"app.ts\", additions: 5, deletions: 2 }] }"}]}]
+15:["$","h2",null,{"children":"流式更新机制 — Delta 详解"}]
+16:["$","h3",null,{"children":"完整事件序列 — 一条文本回复"}]
+17:["$","pre",null,{"children":["$","code",null,{"children":"// 用户发送 \"你好\" 后, 前端收到的 SSE 事件:\n\n// 1. AI 消息创建 (completed=undefined → 正在输出)\n{ type: \"message.updated\", properties: { info: {\n  id: \"msg_002\", role: \"assistant\", parentID: \"msg_001\",\n  time: { created: 1706000000000 }\n}}}\n\n// 2. TextPart 创建 (空文本)\n{ type: \"message.part.updated\", properties: { part: {\n  id: \"part_001\", messageID: \"msg_002\", type: \"text\", text: \"\"\n}}}\n\n// 3-N. 逐 token 推送\n{ type: \"message.part.delta\", properties: {\n  sessionID: \"ses_001\", messageID: \"msg_002\", partID: \"part_001\",\n  field: \"text\", delta: \"你好\"\n}}\n{ type: \"message.part.delta\", properties: { ..., delta: \"！我是\" }}\n{ type: \"message.part.delta\", properties: { ..., delta: \" AI 助手。\" }}\n\n// N+1. TextPart 最终状态\n{ type: \"message.part.updated\", properties: { part: {\n  id: \"part_001\", type: \"text\", text: \"你好！我是 AI 助手。\"\n}}}\n\n// N+2. 消息完成 (completed 有值了)\n{ type: \"message.updated\", properties: { info: {\n  id: \"msg_002\", time: { created: ..., completed: 1706000003000 },\n  cost: 0.001, tokens: { input: 50, output: 20, ... }\n}}}"}]}]
+18:["$","h3",null,{"children":"前端如何处理 Delta"}]
+19:["$","pre",null,{"children":["$","code",null,{"children":"applyDelta(messageID, partID, field, delta) {\n  const parts = this.parts[messageID]\n  const idx = binaryFind(parts, partID)\n  const part = parts[idx]\n  const current = part[field] ?? \"\"    // \"Hello\"\n  const next = current + delta          // \"Hello World\"\n  parts[idx] = { ...part, [field]: next }\n  // → Zustand 触发 React 重渲染\n  // → 用户看到文字逐步出现\n}"}]}]
+1a:["$","h3",null,{"children":"工具调用的事件序列"}]
+1b:["$","pre",null,{"children":["$","code",null,{"children":"// AI 决定读取文件:\n\n// 1. pending → 灰色卡片\n{ type: \"message.part.updated\", properties: { part: {\n  type: \"tool\", tool: \"read\",\n  state: { status: \"pending\", input: { file_path: \"/src/app.ts\" } }\n}}}\n\n// 2. running → 黄色脉冲\n{ type: \"message.part.updated\", properties: { part: {\n  type: \"tool\", tool: \"read\",\n  state: { status: \"running\", input: { file_path: \"/src/app.ts\" } }\n}}}\n\n// 3. completed → 绿色卡片, 可展开\n{ type: \"message.part.updated\", properties: { part: {\n  type: \"tool\", tool: \"read\",\n  state: {\n    status: \"completed\",\n    input: { file_path: \"/src/app.ts\" },\n    output: \"import React from 'react'\\n...\",\n    title: \"Read src/app.ts (142 lines)\",\n    metadata: { lines: 142 }\n  }\n}}}"}]}]
+1c:["$","h2",null,{"children":"数据库存储"}]
+1d:["$","pre",null,{"children":["$","code",null,{"children":"// Message 和 Part 都用 JSON 列存储核心数据\n\nMessageTable = sqliteTable(\"message\", {\n  id:           text(\"id\").primaryKey(),\n  session_id:   text(\"session_id\")\n                  .references(() => SessionTable.id, { onDelete: \"cascade\" }),\n  time_created: integer(\"time_created\"),\n  data:         text(\"data\", { mode: \"json\" }),\n  // ↑ 完整的 UserMessage | AssistantMessage\n})\n\nPartTable = sqliteTable(\"part\", {\n  id:           text(\"id\").primaryKey(),\n  message_id:   text(\"message_id\")\n                  .references(() => MessageTable.id, { onDelete: \"cascade\" }),\n  session_id:   text(\"session_id\"),  // 冗余字段, 方便按 session 查询\n  time_created: integer(\"time_created\"),\n  data:         text(\"data\", { mode: \"json\" }),\n  // ↑ 12 种 Part 类型之一\n})\n\n// 级联删除链: Session → Message → Part\n// 删除 Session 自动清理一切"}]}]
+1e:["$","h2",null,{"children":"设计要点总结"}]
+1f:["$","ul",null,{"children":[["$","li",null,{"children":[["$","strong",null,{"children":"Message + Part 二层结构"}]," — 信封 + 信纸。 Message 记录元信息，Part 记录内容。 一条 AI 回复可以同时包含多种类型的 Part。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"Delta 增量更新"}]," — 流式输出的核心。 只发送新增的字符，前端本地追加，实现打字机效果。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"ToolState 状态机"}]," — pending → running → completed/error。 每次变化都通过 ",["$","code",null,{"children":"message.part.updated"}]," 推送，前端实时更新 UI。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"StepStart/StepFinish"}]," — Agent 循环的步骤边界 + 成本统计。"]}],["$","li",null,{"children":[["$","strong",null,{"children":"JSON 存储"}]," — 灵活（12 种 Part 不同字段）+ 无需 SQL 迁移 + TypeScript 类型保证。"]}]]}]
+20:["$","$L24",null,{"children":["$L25",["$","$L26",null,{"promise":"$@27"}]]}]
+21:["$","$1","h",{"children":[null,[["$","$L28",null,{"children":"$L29"}],null],["$","$L2a",null,{"children":["$","div",null,{"hidden":true,"children":["$","$2b",null,{"fallback":null,"children":"$L2c"}]}]}]]}]
+7:"$0:f:0:1:2:children:1:props:children:1:props:params"
+29:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+25:null
+27:{"metadata":[["$","title","0",{"children":"OpenCode"}],["$","meta","1",{"name":"description","content":"AI Agent Chat Interface"}]],"error":null,"digest":"$undefined"}
+2c:"$27:metadata"
